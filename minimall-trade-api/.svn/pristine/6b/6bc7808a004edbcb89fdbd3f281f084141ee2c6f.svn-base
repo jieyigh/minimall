@@ -1,0 +1,43 @@
+package com.jbh360.trade.vo.param;
+
+
+public class OrderParams {
+
+	private Long order_id;
+	
+	private String close_reason;
+	
+	
+	private Long member_id;
+	
+	
+
+	
+
+	public Long getMember_id() {
+		return member_id;
+	}
+
+	public void setMember_id(Long member_id) {
+		this.member_id = member_id;
+	}
+
+	public Long getOrder_id() {
+		return order_id;
+	}
+
+	public void setOrder_id(Long order_id) {
+		this.order_id = order_id;
+	}
+
+	public String getClose_reason() {
+		return close_reason;
+	}
+
+	public void setClose_reason(String close_reason) {
+		this.close_reason = close_reason;
+	}
+	
+	
+	
+}

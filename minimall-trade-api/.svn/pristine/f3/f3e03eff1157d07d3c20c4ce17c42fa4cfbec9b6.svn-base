@@ -1,0 +1,58 @@
+package com.jbh360.trade.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.ServiceException;
+import com.jbh360.common.exception.SystemErrorCode.OrderExtendCode;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.vo.OrderExtendParams;
+@Service
+public class OrderExtendServiceImp {
+	// 默认延长时间为7小时
+	private final Integer EXTEND_TIME = 7;
+	@Autowired
+	private OrderMapper orderMapper;
+	/**
+	 * 延长收货
+	 * @author : liguosheng 
+	 * @param params 
+	 * @param successResult
+	 * @CreateDate : 2015年10月26日 上午10:58:35 
+	 */
+	public void extend(OrderExtendParams params, SuccessResult successResult) {
+		Long orderId =	params.getOrder_id();
+		// 延迟时长（单位：小时）
+		Integer eSingTime = params.getExtend_sing_time() == null?EXTEND_TIME : params.getExtend_sing_time();
+		
+		Order order = this.orderMapper.selectByPrimaryKey(orderId);
+		
+		if(order == null){
+			throw new ServiceException("订单不存在",OrderExtendCode.ORDER_NOT_EXIST_ERROR);
+		}
+		
+		//所有货物发完时间 	如果为空则报错
+		if(order.getLastExpressTime() == null){
+			throw new ServiceException("订单不符合延长收货要求",OrderExtendCode.ORDER_NOT_EXIST_ERROR);
+		}
+		
+		// 所有货物签收完时间 	如果不为空则报错
+		if(order.getLastSignTime() != null){
+			throw new ServiceException("订单不符合延长收货要求",OrderExtendCode.ORDER_NOT_EXIST_ERROR);
+		}
+		
+		order.setExtendSingTime(eSingTime);
+		
+		int count = this.orderMapper.updateByPrimaryKey(order);
+		
+		if(count != 1){
+			throw new ServiceException("订单保存失败",OrderExtendCode.ORDER_SAVE_FAIL_ERROR);
+		}
+		
+		successResult.setIs_success(true);
+		
+	}
+	
+}

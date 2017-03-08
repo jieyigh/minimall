@@ -1,0 +1,26 @@
+package com.jbh360.trade.vo.rs;
+
+public class OrderServiceResult {
+
+	private Long order_service_id;
+	
+	private String bill_no;
+
+	public Long getOrder_service_id() {
+		return order_service_id;
+	}
+
+	public void setOrder_service_id(Long order_service_id) {
+		this.order_service_id = order_service_id;
+	}
+
+	public String getBill_no() {
+		return bill_no;
+	}
+
+	public void setBill_no(String bill_no) {
+		this.bill_no = bill_no;
+	}
+	
+	
+}

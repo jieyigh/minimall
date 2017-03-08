@@ -1,0 +1,280 @@
+package com.jbh360.trade.service;
+
+import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+
+import javax.annotation.Resource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.common.utils.SignVerifyUtil;
+import com.jbh360.member.oms.entity.Member;
+import com.jbh360.member.oms.entity.MemberWeixinTicket;
+import com.jbh360.member.oms.entity.MemberWeixinTicketExample;
+import com.jbh360.member.oms.mapper.MemberMapper;
+import com.jbh360.member.oms.mapper.MemberWeixinTicketMapper;
+import com.jbh360.trade.entity.OrderPayFlow;
+import com.jbh360.trade.entity.OrderPayFlowExample;
+import com.jbh360.trade.entity.Trade;
+import com.jbh360.trade.entity.TradeOrderRecord;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.OrderPayFlowMapper;
+import com.jbh360.trade.mapper.TradeMapper;
+import com.jbh360.trade.mapper.TradeOrderRecordMapper;
+import com.jbh360.trade.vo.param.OrderPayParams;
+import com.jbh360.trade.vo.rs.OrderPayResult;
+import com.jbh360.trade.vo.rs.PayResult;
+import com.yooyo.util.RestUtil;
+
+
+/**
+ * 支付单
+ * 
+ * @author 揭懿
+ *
+ */
+@Service
+public class OrderPayServiceImpl {
+	
+	
+	@Autowired
+	private OrderMapper orderMapper;
+	
+	@Autowired
+	private TradeMapper tradeMapper;
+	
+	@Autowired
+	private  MemberWeixinTicketMapper memberWeixinTicketMapper;
+	
+	
+	@Autowired
+	private OrderPayFlowMapper orderPayFlowMapper;
+	
+	
+	@Autowired
+	protected OrderServiceServiceImpl orderServiceServiceImpl;
+	
+	
+	@Autowired
+    private MemberMapper memberMapper;
+	
+	
+	@Autowired
+	private TradeOrderRecordMapper tradeOrderRecordMapper;
+	
+	
+	@Resource(name = "siteConfig")
+	private Properties siteConfig;
+	
+	
+	
+	/**
+	 * 支付
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	@Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+	public PayResult pay(OrderPayParams params,ErrorResult error) {
+		PayResult result = new PayResult();
+		Integer i = 0;
+		
+		Trade trade = tradeMapper.selectByPrimaryKey(params.getOid());
+		
+		if(null != trade 
+				&& null != trade.getStateCode() 
+				&& trade.getStateCode().equals(Constants.OrderStateCode.待付款.getKey())){
+			
+			Trade record = new Trade();
+			TradeOrderRecord tradeRecord = new TradeOrderRecord();
+			
+			record.setId(trade.getId());
+			record.setPayChannel(params.getChannel());
+			Map<String,String> hParams = new HashMap<String,String>();
+			hParams.put("oid", trade.getId().toString());
+			hParams.put("pid", params.getPid().toString());
+			
+			if(null != params.getSid())
+			hParams.put("sid", params.getSid().toString());
+			
+			if(null != params.getOpenid()){
+				hParams.put("openid", params.getOpenid());
+			}
+			
+			if(null != params.getChannel()){
+				hParams.put("channel", params.getChannel());
+				record.setPayChannel(params.getChannel());
+			}				
+			if(null != params.getService())
+				hParams.put("service", params.getService());
+			MultiValueMap<String, String> p = new LinkedMultiValueMap<String, String>();
+			for(Entry<String, String> e : hParams.entrySet()) {
+				p.add(e.getKey(), e.getValue());
+			}
+			RestTemplate temp = RestUtil.getRestTemplate();
+			result = temp.postForObject(this.siteConfig.getProperty("pay_generate_trade_url"),p,PayResult.class);
+			if(result.getRet_flag().equals("1") && null != result.getData()){
+				
+				
+				OrderPayFlowExample example = new OrderPayFlowExample();
+				OrderPayFlowExample.Criteria criteria = example.createCriteria();
+				criteria.andFkTradeIdEqualTo(trade.getId());
+				if(null != params.getChannel())
+				criteria.andPayChannelEqualTo(params.getChannel());
+				criteria.andPayNoEqualTo(trade.getPayNo());
+				criteria.andPaymentPriceEqualTo(trade.getTradePaymentAmount());
+				List<OrderPayFlow> flows = orderPayFlowMapper.selectByExample(example);
+				
+				if(null != flows && !flows.isEmpty()){
+					OrderPayFlow flow = flows.get(0);
+					
+					OrderPayFlow newFlow = new OrderPayFlow();
+					newFlow.setId(flow.getId());
+					newFlow.setPayNo(trade.getPayNo());
+					newFlow.setPayUrl(result.getData());
+					newFlow.setLastUpdateTime(DateUtil.now());
+					orderPayFlowMapper.updateByPrimaryKeySelective(newFlow);
+					
+				}else{
+					
+					OrderPayFlow flow = new OrderPayFlow();
+					flow.setCreateTime(DateUtil.now());
+					flow.setFkTradeId(trade.getId());
+					if(null != params.getChannel())
+					flow.setPayChannel(params.getChannel());
+					flow.setPaymentPrice(trade.getTradePaymentAmount());
+					flow.setPayNo(trade.getPayNo());
+					flow.setPayReceivable(trade.getPayReceivable());
+					flow.setPayState(Constants.PayState.已付款待确认.getKey());
+					flow.setPayTimeout(DateUtil.addMinutes(DateUtil.now(), 30));
+					flow.setPayUrl(result.getData());
+					orderPayFlowMapper.insertSelective(flow);
+				}
+				
+				
+				
+				result.setIs_success(true);
+				record.setPayState(Constants.PayState.已付款待确认.getKey());
+				record.setPayUrl(result.getData());
+				record.setLastUpdateTime(DateUtil.now());
+				if(null != params.getCurrent_user_id()){
+					record.setLastUpdateUserId(params.getCurrent_user_id());
+					tradeRecord.setOpUserId(params.getCurrent_user_id());	
+					Member member = memberMapper.selectByPrimaryKey(params.getCurrent_user_id());
+					if(null != member){
+						tradeRecord.setOpUserName(member.getRealName());
+					}
+				}
+				i = tradeMapper.updateByPrimaryKeySelective(record);
+				if(i>0){
+					tradeRecord.setFkTradeId(record.getId());
+					//tradeRecord.setFkOrderId();
+					tradeRecord.setOpTime(DateUtil.now());
+					tradeRecord.setOpContent(Constants.TradeOrderRecordOpType.支付订单.getValue());
+					tradeRecord.setOpType(Constants.TradeOrderRecordOpType.支付订单.getValue());
+					tradeRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getValue());
+					tradeOrderRecordMapper.insertSelective(tradeRecord);
+				}
+				return result;
+			}else{
+				error.setErrorCode(result.getError_code());
+				error.setErrorMessage(result.getRet_msg());
+				return null;
+			}
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.TRADE_NO_EXISTENCE);
+    		error.setErrorMessage("交易单无效");
+    		return null;
+		}
+	}
+	 
+	/**
+	 * 获取支付单信息
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	public OrderPayResult getPayOrder(OrderPayParams params,ErrorResult error){
+		OrderPayResult result = new OrderPayResult();
+		
+		Trade trade = tradeMapper.selectByPrimaryKey(params.getId());
+		if(null != trade){
+			
+			result.setAmount(String.valueOf(trade.getTradeShouldAmount()));
+			
+			result.setBiz_no(trade.getPayNo());
+			
+			//result.setDescribe(trade.getTitle());
+			
+			result.setNotice_url(this.siteConfig.getProperty("pay.trade.notice_url"));
+			
+			//result.setOrder_url(order_url);
+			
+			//result.setProduct(trade.getTitle());
+			
+			result.setReturn_url(MessageFormat.format(
+					this.siteConfig.getProperty("pay.trade.return_url"),trade.getTradeNo()));
+			
+			result.setTime_limit(30);
+			
+			Map<String, String> signParams = new HashMap<String,String>();
+			
+			signParams.put("biz_no",result.getBiz_no());
+			signParams.put("amount", result.getAmount());
+			signParams.put("product", result.getProduct());
+			signParams.put("describe", result.getDescribe());
+			
+			if(null != result.getOrder_url())
+			signParams.put("order_url", result.getOrder_url());
+			
+			if(null != result.getNotice_url())
+			signParams.put("notice_url", result.getNotice_url());
+			
+			if(null != result.getReturn_url())
+			signParams.put("return_url", result.getReturn_url());
+			
+			signParams.put("time_limit", String.valueOf(result.getTime_limit()));
+			
+			if(null != params.getOpenid()){
+				  MemberWeixinTicketExample example = new MemberWeixinTicketExample();
+				  MemberWeixinTicketExample.Criteria criteria = example.createCriteria();
+				  criteria.andWeixinTicketEqualTo(params.getOpenid());
+				  List<MemberWeixinTicket> wxtickets = memberWeixinTicketMapper.selectByExample(example);
+				  
+				  if(null != wxtickets && !wxtickets.isEmpty()){
+					  MemberWeixinTicket wxticket =  wxtickets.get(0);
+					  signParams.put("openid", wxticket.getWeixinOpenid());
+					  result.setOpenid(wxticket.getWeixinOpenid());
+				  }
+			}
+			String sign = SignVerifyUtil.sign(signParams, Constants.SIGN_KEY);
+			result.setSign(sign);
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.TRADE_NO_EXISTENCE);
+    		error.setErrorMessage("交易单无效");
+    		return null;
+		}
+		return result;
+	}
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+	}
+
+}

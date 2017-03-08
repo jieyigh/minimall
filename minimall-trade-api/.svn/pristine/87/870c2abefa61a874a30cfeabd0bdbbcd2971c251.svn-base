@@ -1,0 +1,39 @@
+package com.jbh360.trade.vo.rs;
+
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlElements;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jbh360.common.base.PageUtil;
+
+public class OrderServiceListResult extends PageUtil{
+  
+	private List<OrderServiceResult> orderServiceResult;
+	
+	public OrderServiceListResult() {
+		super();
+	}
+
+	public OrderServiceListResult(int pageSize, int pageNo, long totalCount) {
+		super(pageSize, pageNo, totalCount);
+	}
+
+	
+	@XmlElementWrapper(name="order_services")
+	@XmlElements({
+		@XmlElement(name="order_service",type=OrderServiceResult.class)		
+	})
+	@JsonProperty("order_services")
+	public List<OrderServiceResult> getOrderServiceResult() {
+		return orderServiceResult;
+	}
+
+	public void setOrderServiceResult(List<OrderServiceResult> orderServiceResult) {
+		this.orderServiceResult = orderServiceResult;
+	}
+
+	
+}

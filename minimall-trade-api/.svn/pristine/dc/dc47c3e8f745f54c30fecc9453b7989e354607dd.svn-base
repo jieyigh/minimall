@@ -1,0 +1,559 @@
+package com.jbh360.trade.service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import com.jbh360.api.sdk.utils.StringUtils;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.ServiceException;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.goods.entity.ProductSku;
+import com.jbh360.goods.entity.ProductWithBLOBs;
+import com.jbh360.goods.entity.StoreGoods;
+import com.jbh360.goods.entity.StoreGoodsSku;
+import com.jbh360.goods.mapper.ProductMapper;
+import com.jbh360.goods.mapper.ProductPictureMapper;
+import com.jbh360.goods.mapper.ProductSkuMapper;
+import com.jbh360.goods.mapper.StoreGoodsMapper;
+import com.jbh360.goods.mapper.StoreGoodsSkuMapper;
+import com.jbh360.member.oms.entity.Member;
+import com.jbh360.member.oms.mapper.MemberMapper;
+import com.jbh360.store.entity.StoreInfo;
+import com.jbh360.store.mapper.StoreInfoMapper;
+import com.jbh360.trade.dao.ShopCartDao;
+import com.jbh360.trade.entity.ShopCart;
+import com.jbh360.trade.entity.ShopCartExample;
+import com.jbh360.trade.entity.ShopCartExample.Criteria;
+import com.jbh360.trade.mapper.ShopCartMapper;
+import com.jbh360.trade.vo.ShopCartListResult;
+import com.jbh360.trade.vo.ShopCartParams;
+import com.jbh360.trade.vo.ShopCartResult;
+import com.jbh360.trade.vo.ShopResult;
+
+@Service
+public class ShopCartServiceImpl{
+	private Logger log = Logger.getLogger(ShopCartServiceImpl.class);
+	@Autowired
+	private ShopCartMapper shopCartMapper;
+	
+	@Autowired
+	private ShopCartDao shopCartDao;
+	
+	@Autowired
+	private ProductMapper productMapper;				// 商品表 数据操作层
+	
+	@Autowired
+	private ProductPictureMapper productPictureMapper; 	// 商品图片数据操作层
+	
+	@Autowired
+	private MemberMapper memberMapper;					// 用户数据操作层		
+	
+	@Autowired
+	private ProductSkuMapper productSkuMapper;			// 产品数据操作层
+	
+	@Autowired
+	private StoreInfoMapper storeInfoMapper;			// 店铺数据操作层
+	
+	@Autowired
+	private StoreGoodsMapper storeGoodsMapper;			
+	
+	@Autowired
+	private StoreGoodsSkuMapper storeGoodsSkuMapper;
+	
+
+	/**
+	 * 获取购物车集合
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月30日 上午11:53:55 
+	 * @param params
+	 * @return
+	 */
+	public ShopCartListResult findShopCartList(ShopCartParams params) {
+		
+		ShopCartListResult shopCartListResult = new ShopCartListResult();
+		
+		List<ShopCartResult> shopCarts = this.shopCartDao.findShopCartList(params);
+		
+		List<ShopResult> shops = findShopCartGroup(shopCarts);
+		
+		shopCartListResult.setShops(shops);
+		
+		return shopCartListResult;
+	}
+
+	/**
+	 * 对购物车集合通过店铺ID进行分组
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月30日 上午11:49:15 
+	 * @param shopCarts
+	 * @return
+	 */
+	private List<ShopResult> findShopCartGroup(List<ShopCartResult> shopCarts) {
+		// 店铺集合
+		List<ShopResult> shops = null;
+		// 店铺分组 MAP对象   <店铺ID,购物车集合>
+		Map<Long,List<ShopCartResult>> shopMaps  = null;
+		
+		if(!CollectionUtils.isEmpty(shopCarts)){
+			
+			shops = new ArrayList<ShopResult>();
+			
+			shopMaps = new HashMap<Long,List<ShopCartResult>>();
+			
+			// 循环购物车,对店铺ID相同的进行分组,店铺ID根据商品类型1：自营产品(取掌柜店铺)，2：代销商品(去商家店铺)
+			for(ShopCartResult shopCart : shopCarts){
+				
+				Long store_id = (shopCart.getFkSupplierStoreId() == null ? shopCart.getFkShopStoreId() : shopCart.getFkSupplierStoreId());
+				
+				List<ShopCartResult> cas = new ArrayList<ShopCartResult>();
+				
+				if(shopMaps.containsKey(store_id)){
+					cas = shopMaps.get(store_id);
+				}
+				
+				cas.add(shopCart);
+				shopMaps.put(store_id, cas);
+			}
+			
+			for(Long storeId : shopMaps.keySet()){
+				
+				List<ShopCartResult> cas = shopMaps.get(storeId);
+				
+				ShopResult shopResult = new ShopResult();
+				
+				//商品类型（1：自营产品，2：代销商品）
+				Short goodsType = cas.get(0).getGoodsType();
+				
+				shopResult.setShopCarts(cas);
+				// 根据商品类型  1：自营产品 = 掌柜店铺  ,  2：代销商品=商家店铺
+				shopResult.setStoreId(storeId);
+				shopResult.setStoreName(goodsType == 1?cas.get(0).getShopStoreName() : cas.get(0).getSupplierStoreName());
+				
+				shops.add(shopResult);
+			}
+		}
+		
+		return shops;
+	}
+
+	/**
+	 * 添加购物车
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月29日 上午10:44:54 
+	 * @param params
+	 * @return
+	 */
+	public ShopCartResult addShopCart(ShopCartParams params) {
+		
+		log.info("===================添加购物车开始addShopCart===================");
+		
+		ShopCartResult shopCartResult = new ShopCartResult();
+		
+		
+		/** 校验 **/
+		validPurchaseCart(params);
+		
+		List<ShopCart> shopCarts = findShopCart(params);
+		
+		ShopCart shopCart = null;
+		
+		int count = 0;
+		
+		// 新增
+		if(CollectionUtils.isEmpty(shopCarts)){
+			shopCart = putAddData(params);
+			count = this.shopCartMapper.insertSelective(shopCart);
+		// 更新
+		}else{
+			Integer buy_count = null;
+			if(params.getBuy_count() != null){
+				buy_count = shopCarts.get(0).getBuyCount() + params.getBuy_count();
+			}else{
+				buy_count = shopCarts.get(0).getBuyCount();
+			}
+			params.setBuy_count(buy_count);
+			shopCart = putUpdateData(params,shopCarts.get(0));
+			count = this.shopCartMapper.updateByPrimaryKey(shopCart);
+		}
+		if(count > 0){
+			shopCartResult.setId(shopCart.getId());
+		}
+		
+		log.info("===================添加购物车结束addShopCart===================");
+		return shopCartResult;
+	}
+
+	// 赋值购物车对象更新数据
+	private ShopCart putUpdateData(ShopCartParams params, ShopCart shopCart) {
+		// 购买数量
+		Integer buyCount = params.getBuy_count() == null ? shopCart.getBuyCount() : params.getBuy_count();
+		// 单价
+		String productUnitPriceStr = params.getProduct_unit_price();
+		
+		BigDecimal productUnitPrice  = null;
+		if(!StringUtils.isEmpty(productUnitPriceStr)){
+			productUnitPrice = BigDecimal.valueOf(Double.valueOf(productUnitPriceStr));
+		}else{
+			productUnitPrice = shopCart.getProductUnitPrice();
+		}
+		
+		// 节省价
+		BigDecimal frugalPrice = BigDecimal.ZERO;
+		// 总价
+		BigDecimal newBigBuyCount = new BigDecimal(buyCount);
+		BigDecimal totalPrice = productUnitPrice.multiply(newBigBuyCount);
+		/** 购买数量 **/
+		shopCart.setBuyCount(buyCount);
+		/** 产品单价  **/
+		shopCart.setProductUnitPrice(productUnitPrice);
+		/** 节省价 **/
+		shopCart.setFrugalPrice(frugalPrice);
+		/** 总价 **/
+		shopCart.setTotalPrice(totalPrice);
+		return shopCart;
+	}
+
+	// 赋值购物车对象新增数据
+	private ShopCart putAddData(ShopCartParams params) {
+		
+		Long storeGoodsId = params.getStore_goods_id();			// 代销商品ID
+		Long storeGoodsSkuId = params.getStore_goods_sku_id();	// 代销商品SKU
+		Long productId = params.getProduct_id();				// 产品ID
+		Long productSkuId = params.getProduct_sku_id();			// 产品SKU
+		Long storeId = params.getStore_id();					// 店铺ID
+		/// productId = (storeGoods==null?productId:storeGoods.getFkProductId());
+		Member member =  memberMapper.selectByPrimaryKey(params.getMember_id());
+		
+		StoreGoods storeGoods = null;
+		StoreGoodsSku storeGoodsSku = null;
+		ProductWithBLOBs product = null;
+		ProductSku productSku = null;
+		
+		if(storeGoodsId != null){
+			storeGoods = this.storeGoodsMapper.selectByPrimaryKey(storeGoodsId);
+		}
+		if(storeGoodsSkuId != null){
+			storeGoodsSku = this.storeGoodsSkuMapper.selectByPrimaryKey(storeGoodsSkuId);
+		}
+		
+		if(storeGoods != null){
+			productId = storeGoods.getFkProductId();
+		}
+		
+		product = productMapper.selectByPrimaryKey(productId);
+		
+		if(productSkuId != null){
+			productSku = productSkuMapper.selectByPrimaryKey(productSkuId);
+		}
+		
+		
+		StoreInfo storeInfo = this.storeInfoMapper.selectByPrimaryKey(storeId);;
+		
+		ShopCart shopCart = new ShopCart();
+		
+		
+		
+		// 购买数量
+		Integer buyCount = params.getBuy_count() == null ? 0 : params.getBuy_count();
+		// 单价
+		BigDecimal productUnitPrice = BigDecimal.valueOf(Double.valueOf(params.getProduct_unit_price()));
+		// 节省价
+		BigDecimal frugalPrice = BigDecimal.ZERO;
+		// 总价
+		BigDecimal newBigBuyCount = new BigDecimal(buyCount);
+		BigDecimal totalPrice = productUnitPrice.multiply(newBigBuyCount);
+		
+		Short goodsType = (short) (params.getStore_goods_id() == null?1:2);
+		
+		
+		// 商品类型（1：自营产品，2：代销商品
+		shopCart.setGoodsType(goodsType);
+		// 掌柜店铺
+		shopCart.setFkShopStoreId(params.getStore_id());
+		// 掌柜店铺名称
+		shopCart.setShopStoreName(storeInfo.getStoreName());
+		// 掌柜id
+		shopCart.setFkShopMemberId(storeInfo.getFkMemberId());
+		// 掌柜名称
+		Member storeMember = this.memberMapper.selectByPrimaryKey(storeInfo.getFkMemberId());
+		shopCart.setShopStoreMemberName(storeMember != null?storeMember.getRealName():null);
+		// 终端买家客户id（普通会员）
+		shopCart.setFkCustomerMemberId(member.getId());
+		// 终端买家客户名称
+		shopCart.setCustomerMemberName(member.getRealName());
+		// 买家手机号
+		shopCart.setCustomerMemberMobile(params.getCustomer_member_mobile());
+		
+		
+		if(goodsType == 2 && storeGoods != null){
+			// 店铺商品id
+			shopCart.setFkGoodsId(storeGoods.getId());
+			// 店铺商品的sku的i
+			shopCart.setFkStoreGoodsSkuId(storeGoodsSku != null?storeGoodsSku.getId():null);
+			
+			StoreInfo supplierStoreInfo = this.storeInfoMapper.selectByPrimaryKey(product.getFkStoreId());
+			// 商户id
+			shopCart.setFkSupplierId(supplierStoreInfo != null?supplierStoreInfo.getFkSupplierId():null);
+			// 商户店铺id
+			shopCart.setFkSupplierStoreId(product.getFkStoreId());
+			// 商户店铺掌柜id
+			shopCart.setFkSupplierStoreMemberId(supplierStoreInfo != null?supplierStoreInfo.getFkMemberId():null);
+			// 商户店铺名称
+			shopCart.setSupplierStoreName(supplierStoreInfo != null?supplierStoreInfo.getStoreName():null);
+			// 产品sku的barcode
+			shopCart.setProductSkuBarcode(storeGoodsSku.getProductSkuBarcode());
+		}else{
+			// 产品sku的barcode
+			shopCart.setProductSkuBarcode(productSku != null?productSku.getProductSkuBarcode():null);
+		}
+		
+		if(product != null){
+			// 产品id
+			shopCart.setFkProductId(product.getId());
+			// 产品skuid
+			shopCart.setFkProductSkuId(productSku != null?productSku.getId(): null);
+			// 产品版本号
+			shopCart.setVersionNo(product.getCurrentHistoryVersion());
+			// 产品名称
+			shopCart.setProductName(product.getName());
+			// 产品logo图
+			shopCart.setProductLogoRsurl(product.getLogoRsurl());
+			// sku属性名组合字符串
+			shopCart.setSkuPropertiesName(productSku != null?productSku.getSkuProperties():null);
+		}
+		
+		
+		// 购买数量
+		shopCart.setBuyCount(buyCount);
+		// 产品单价
+		shopCart.setProductUnitPrice(productUnitPrice);
+		// 节省价
+		shopCart.setFrugalPrice(frugalPrice);
+		// 总价（单价*数量-折扣）
+		shopCart.setTotalPrice(totalPrice);
+		// 店铺促销id（私密折扣id）
+		shopCart.setFkPromotionId(null);
+		// 状态
+		shopCart.setState(Constants.CommonState.NORMAL.getValue());
+		shopCart.setCreateTime(DateUtil.now());
+		shopCart.setLastUpdateTime(DateUtil.now());
+		shopCart.setCreateUserId(member.getId());
+		shopCart.setLastUpdateUserId(member.getId());
+		
+		return shopCart;
+	}
+
+	// 查询购物车信息
+	private List<ShopCart> findShopCart(ShopCartParams params) {
+		ShopCartExample shopCartExample = new ShopCartExample();
+		Criteria criteria = shopCartExample.createCriteria();
+		criteria
+			.andFkShopStoreIdEqualTo(params.getStore_id())
+			.andFkCustomerMemberIdEqualTo(params.getMember_id())
+			.andStateEqualTo(Constants.CommonState.NORMAL.getValue());
+		
+		// 代销产品
+		if(params.getStore_goods_id() != null){
+			criteria.andFkGoodsIdEqualTo(params.getStore_goods_id());
+			criteria.andFkStoreGoodsSkuIdEqualTo(params.getStore_goods_sku_id());
+		// 自营产品
+		}else{
+			criteria.andFkProductIdEqualTo(params.getProduct_id());
+			criteria.andFkProductSkuIdEqualTo(params.getProduct_sku_id());
+		}
+		
+		return this.shopCartMapper.selectByExample(shopCartExample);
+	}
+
+	/**
+	 * 校验用户、产品、产品sku、商品、商品sku
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月29日 上午10:47:48 
+	 * @param params
+	 * @param member
+	 * @param product
+	 * @param productSku
+	 * @param storeGoodsSku 
+	 * @param storeGoods 
+	 */
+	private void validPurchaseCart(ShopCartParams params) {
+		
+		Member member = null;
+		ProductWithBLOBs product = null;
+		ProductSku productSku = null;
+		StoreGoods storeGoods = null;
+		StoreGoodsSku storeGoodsSku = null;
+		StoreInfo storeInfo = null;
+		
+		// 前台传入的产品单价
+		BigDecimal unitPrice = BigDecimal.valueOf(Double.valueOf(params.getProduct_unit_price()));
+		
+		log.info("===========校验开始addPurchaseCart===========");
+		
+		Long storeGoodsId = params.getStore_goods_id();			// 代销商品ID
+		Long storeGoodsSkuId = params.getStore_goods_sku_id();	// 代销商品SKU
+		Long productId = params.getProduct_id();				// 产品ID
+		Long productSkuId = params.getProduct_sku_id();			// 产品SKU
+		Long storeId = params.getStore_id();					// 店铺ID
+		
+		log.info("校验店铺ID:"+storeId);
+		storeInfo = this.storeInfoMapper.selectByPrimaryKey(storeId);
+		if(storeInfo == null){
+			throw new ServiceException("无效的店铺id:"+storeId, SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_STORE_ID_NOT_INVALID);
+			
+		}
+		
+		log.info("校验 商品ID与产品ID不能同时为空");
+		if(storeGoodsId == null && productId == null){
+			throw new ServiceException("代销商品ID与产品ID不能同时为空", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_STORE_GOODS_ID_AND_PRODUCT_ID_IS_NOT_ALL_NULL);
+		}
+		
+		log.info("校验 会员ID："+params.getMember_id());
+		member =  memberMapper.selectByPrimaryKey(params.getMember_id());
+		if(member == null){
+			throw new ServiceException("无效会员id", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_MEMBER_ID_NOT_INVALID);
+		}
+
+		if(storeGoodsId != null){
+			
+			log.info("校验 代销商品ID："+storeGoodsId);
+			
+			storeGoods = this.storeGoodsMapper.selectByPrimaryKey(storeGoodsId);
+			if(storeGoods == null){
+				throw new ServiceException("无效的代销商品ID", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_STORE_GOODS_ID_NOT_INVALID);
+			}
+			
+			if(storeGoodsSkuId != null){
+				
+				log.info("代销商品SKU校验："+storeGoodsSkuId);
+				
+				storeGoodsSku = this.storeGoodsSkuMapper.selectByPrimaryKey(storeGoodsSkuId);
+				
+				if(storeGoodsSku == null){
+					throw new ServiceException("无效的代销商品SKU", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_STORE_GOODS_SKU_ID_NOT_INVALID);
+				}
+				
+				if(storeGoodsSku.getFkStoreGoodsId() != storeGoodsId){
+					throw new ServiceException("商品ID与商品SKU不对应", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_STOREGOODS_ID_AND_STOREGOODS_SKU_ID_NOT_INVALID);
+				}
+				
+				if(unitPrice.compareTo(storeGoodsSku.getStoreSalePrice()) != 0){
+					throw new ServiceException("产品销售单价应该等于商品SKU销售单价",SystemErrorCode.ShopCartErrorCode.PRODUCTS_SALE_PRICE_ERROR);
+				}
+				
+			}else{
+				throw new ServiceException("商品SKU ID不能为空",SystemErrorCode.ShopCartErrorCode.STOREGOODS_SKU_IS_NOT_NULL);
+			}
+		}
+		
+		productId = (storeGoods==null?productId:storeGoods.getFkProductId());
+		if(productId != null){
+			log.info("校验产品ID："+productId);
+			
+			if(storeGoods != null && storeGoods.getFkProductId() != productId){
+				throw new ServiceException("代销商品对应的产品ID与前台的产品ID不对应", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_PRODUCT_ID_AND_STORE_PRODUCT_ID_NOT_INVALID);
+			}
+			
+			product = productMapper.selectByPrimaryKey(productId);
+			if(product == null){
+				throw new ServiceException("无效的产品ID", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_PRODUCT_ID_NOT_INVALID);
+			}
+			
+			if(productSkuId != null){
+				
+				log.info("校验产品sku："+productSkuId);
+				
+				productSku = productSkuMapper.selectByPrimaryKey(productSkuId);
+				
+				if(productSku == null){
+					throw new ServiceException("无效的产品sku ID", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_PRODUCT_SKU_ID_NOT_INVALID);
+				}
+				
+				if(!product.getId().equals(productSku.getFkProductId())){
+					throw new ServiceException("产品ID与产品skuid不对应", SystemErrorCode.ShopCartErrorCode.SHOP_CART_ADD_PRODUCT_ID_AND_PRODUCT_SKU_ID_NOT_INVALID);
+				}
+				
+				if(storeGoodsId == null){
+					if(unitPrice.compareTo(productSku.getSettlementPrice()) != 0){
+						throw new ServiceException("产品销售单价应该等于产品SKU销售单价",SystemErrorCode.ShopCartErrorCode.PRODUCTS_SALE_PRICE_ERROR);
+					}
+				}
+				
+			}else{
+				if(storeGoodsId == null){
+					throw new ServiceException("产品SKU ID不能为空",SystemErrorCode.ShopCartErrorCode.PRODUCT_SKU_IS_NOT_NULL);
+				}
+			}
+		}
+		log.info("===========校验结束addPurchaseCart===========");
+	}
+
+	/**
+	 * 更新购物车信息
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月29日 下午6:30:55 
+	 * @param params
+	 * @return
+	 */
+	public SuccessResult updateShopCart(ShopCartParams params) {
+		SuccessResult result = new SuccessResult();
+		// 校验
+		//this.validPurchaseCart(params);
+		
+		ShopCart shopCart = this.shopCartMapper.selectByPrimaryKey(params.getShop_cart_id());
+		
+		if(shopCart == null || Constants.CommonState.DELETE.getValue().equals(shopCart.getState())){
+			throw new ServiceException("该purchase_id="+params.getShop_cart_id()+"的购物车记录不存在或者已删除", SystemErrorCode.ShopCartErrorCode.SHOP_CART_DELETE_SHOP_CART_ID_NONEXISTENT);
+		}
+		
+		shopCart =  this.putUpdateData(params, shopCart);
+		int count = this.shopCartMapper.updateByPrimaryKey(shopCart);
+		if(count > 0){
+			result.setIs_success(true);
+		}
+		return result;
+	}
+	
+	/**
+	 * 删除购物车信息
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月28日 下午4:52:20 
+	 * @param params
+	 * @return
+	 */
+	public SuccessResult deleteShopCart(ShopCartParams params) {
+		SuccessResult result = new SuccessResult();
+		String[] shopCartIds = params.getShop_cart_ids();
+		if(!ArrayUtils.isEmpty(shopCartIds)){
+			for(String cartid : shopCartIds ){
+				ShopCart shopCart = this.shopCartMapper.selectByPrimaryKey(Long.valueOf(cartid));
+				if(shopCart == null || Constants.CommonState.DELETE.getValue().equals(shopCart.getState())){
+					throw new ServiceException("该shop_cart_id="+cartid+"的购物车记录不存在或者已删除", SystemErrorCode.ShopCartErrorCode.SHOP_CART_DELETE_SHOP_CART_ID_NONEXISTENT);
+				}
+				
+				shopCart.setState(Constants.CommonState.DELETE.getValue());
+				shopCart.setLastUpdateTime(DateUtil.now());
+				shopCart.setLastUpdateUserId(params.getMember_id());
+				int count = this.shopCartMapper.updateByPrimaryKey(shopCart);
+				if(count > 0){
+					result.setIs_success(true);
+				}
+				
+			}
+		}else{
+			throw new ServiceException("Shop_cart_ids 不能为空","shop_cart_ids_is_no_null");
+		}
+		return result;
+	}
+	
+}

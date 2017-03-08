@@ -1,0 +1,47 @@
+package com.jbh360.trade.service;
+
+import org.springframework.stereotype.Service;
+
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.trade.vo.OrderPreSplitParams;
+
+/**
+ * 订单预分账业务逻辑层
+ * @author : liguosheng 
+ * @CreateDate : 2015年10月29日 下午4:24:36
+ */
+@Service
+public class OrderPreSplitServiceImpl {
+
+	/**
+	 * 订单预分账逻辑:
+	 * 			从订单中，将 商户、掌柜的账 分别 存入分账流水中。为日后平台入账提供数据。
+	 *   
+	 *   ===================1：采购单==================
+	 *   邮费 = 运费-运费优惠-邮资卡
+	 *   平台分摊价格 = (订单总价-邮费)*分摊汇率
+	 *   商户获取价格 = 订单总价 - 平台分摊价格
+	 *   ==============================================
+	 *   
+	 *   ===================2：代销单 ==================
+	 *   邮费 = 运费-运费优惠
+	 *   掌柜获取价格 = 订单总价 - 邮费 - 结算总价
+	 *   平台分摊价格 = 结算总价 * 分摊汇率
+	 *   商户获取价格 = 邮费 + 结算总价*(1-分摊汇率)
+	 *   ==============================================
+	 *   
+	 *   ===================3：自营单  ==================
+	 *   掌柜获取价格=订单价格
+	 *   ==============================================
+	 *      
+	 *  保存的属性：订单总价、结算总价、邮费   
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月29日 下午4:29:47 
+	 * @param params
+	 * @param is_success
+	 */
+	public void preSplit(OrderPreSplitParams params, SuccessResult is_success) {
+		
+	}
+	
+}

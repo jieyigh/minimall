@@ -1,0 +1,44 @@
+package com.jbh360.trade.vo;
+
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlElements;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class PurchaseCartListResult {
+	
+	private List<SupplierResult> suppliers;
+	private List<StepPriceResult> stepPrices;
+
+	@XmlElementWrapper(name="suppliers")
+	@XmlElements({
+		@XmlElement(name="supplier",type=SupplierResult.class)		
+	})
+	@JsonProperty("suppliers")
+	public List<SupplierResult> getSuppliers() {
+		return suppliers;
+	}
+
+	public void setSuppliers(List<SupplierResult> suppliers) {
+		this.suppliers = suppliers;
+	}
+
+	@XmlElementWrapper(name="step_prices")
+	@XmlElements({
+		@XmlElement(name="step_price",type=StepPriceResult.class)		
+	})
+	@JsonProperty("step_prices")
+	public List<StepPriceResult> getStepPrices() {
+		return stepPrices;
+	}
+
+	public void setStepPrices(List<StepPriceResult> stepPrices) {
+		this.stepPrices = stepPrices;
+	}
+	
+	
+	
+}

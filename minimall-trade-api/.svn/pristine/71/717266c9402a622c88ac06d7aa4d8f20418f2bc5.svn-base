@@ -1,0 +1,41 @@
+package com.jbh360.trade.vo;
+
+import java.math.BigDecimal;
+
+import javax.validation.constraints.NotNull;
+
+public class OrderPreSplitParams {
+	@NotNull(message="订单order_id不能为空")
+	private Long order_id;
+	
+	@NotNull(message="操作类型tran_type不能为空")
+	private Short tran_type;   			// 操作类型 1:入账，2:退款
+	
+	private BigDecimal refund_amount;	// 退款金额
+	
+
+	public BigDecimal getRefund_amount() {
+		return refund_amount;
+	}
+
+	public void setRefund_amount(BigDecimal refund_amount) {
+		this.refund_amount = refund_amount;
+	}
+
+	public Long getOrder_id() {
+		return order_id;
+	}
+
+	public void setOrder_id(Long order_id) {
+		this.order_id = order_id;
+	}
+
+	public Short getTran_type() {
+		return tran_type;
+	}
+
+	public void setTran_type(Short tran_type) {
+		this.tran_type = tran_type;
+	}
+	
+}

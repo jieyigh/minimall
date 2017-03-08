@@ -1,0 +1,358 @@
+package com.jbh360.trade.vo.rs;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlElements;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class OrderServiceResult {
+
+	private Long id;
+	
+	private Short orderType;
+	
+	private String billNo;
+	
+	private String stateCode;
+	
+	private String stateName;
+	
+	private String subStateCode;
+	
+	private String subStateName;
+	
+	private String productName;
+	
+	private String productLogoRsurl;
+	
+	private String skuPropertyValue;
+	
+	private String serviceTips;
+	
+	private String dealType;
+	
+	private String dealTypeName;
+	
+	private String applyName;
+	
+	private Date applyTime;
+	
+	private String applyPhone;
+	
+	private String refundReasonTypeName;
+	
+	private String markedWords;
+	
+	private Date startTime;
+	
+	private Date endTime;		
+	
+	private BigDecimal refundGoodsPrice;
+	
+	private BigDecimal refundExpressPrice;
+	
+	private Short refundCount;
+	
+	private BigDecimal refundPrice;
+	
+	private BigDecimal productPrice;
+
+	private List<OrderServiceRecordResult> recordResults;
+	
+	private OrderResult orderResult;
+	
+	
+	private String orderNo;
+	private String receiverName;
+	private String receiverMobile;
+	
+	
+	
+	
+	
+	@XmlElement(name = "order_no")
+	public String getOrderNo() {
+		return orderNo;
+	}
+
+	public void setOrderNo(String orderNo) {
+		this.orderNo = orderNo;
+	}
+
+	@XmlElement(name = "receiver_name")
+	public String getReceiverName() {
+		return receiverName;
+	}
+
+	public void setReceiverName(String receiverName) {
+		this.receiverName = receiverName;
+	}
+
+	@XmlElement(name = "receiver_mobile")
+	public String getReceiverMobile() {
+		return receiverMobile;
+	}
+
+	public void setReceiverMobile(String receiverMobile) {
+		this.receiverMobile = receiverMobile;
+	}
+
+	@XmlElementWrapper(name="order_service_records")
+	@XmlElements({
+		@XmlElement(name="order_service_record",type=OrderServiceRecordResult.class)		
+	})
+	@JsonProperty("order_service_records")
+	public List<OrderServiceRecordResult> getRecordResults() {
+		return recordResults;
+	}
+
+	public void setRecordResults(List<OrderServiceRecordResult> recordResults) {
+		this.recordResults = recordResults;
+	}
+
+	@XmlElement(name = "order")
+	public OrderResult getOrderResult() {
+		return orderResult;
+	}
+
+	public void setOrderResult(OrderResult orderResult) {
+		this.orderResult = orderResult;
+	}
+
+	@XmlElement(name = "order_service_id")
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+
+	@XmlElement(name = "order_type")
+	public Short getOrderType() {
+		return orderType;
+	}
+
+	public void setOrderType(Short orderType) {
+		this.orderType = orderType;
+	}
+
+
+	@XmlElement(name = "bill_no")
+	public String getBillNo() {
+		return billNo;
+	}
+
+	public void setBillNo(String billNo) {
+		this.billNo = billNo;
+	}
+
+	@XmlElement(name = "state_code")
+	public String getStateCode() {
+		return stateCode;
+	}
+
+	public void setStateCode(String stateCode) {
+		this.stateCode = stateCode;
+	}
+
+	@XmlElement(name = "state_name")
+	public String getStateName() {
+		return stateName;
+	}
+
+	public void setStateName(String stateName) {
+		this.stateName = stateName;
+	}
+
+	@XmlElement(name = "sub_state_code")
+	public String getSubStateCode() {
+		return subStateCode;
+	}
+
+	
+	public void setSubStateCode(String subStateCode) {
+		this.subStateCode = subStateCode;
+	}
+
+	@XmlElement(name = "sub_state_name")
+	public String getSubStateName() {
+		return subStateName;
+	}
+
+	
+	public void setSubStateName(String subStateName) {
+		this.subStateName = subStateName;
+	}
+
+	@XmlElement(name = "product_name")
+	public String getProductName() {
+		return productName;
+	}
+
+	public void setProductName(String productName) {
+		this.productName = productName;
+	}
+
+	@XmlElement(name = "product_logo_rsurl")
+	public String getProductLogoRsurl() {
+		return productLogoRsurl;
+	}
+
+	public void setProductLogoRsurl(String productLogoRsurl) {
+		this.productLogoRsurl = productLogoRsurl;
+	}
+
+	@XmlElement(name = "sku_property_value")
+	public String getSkuPropertyValue() {
+		return skuPropertyValue;
+	}
+
+	public void setSkuPropertyValue(String skuPropertyValue) {
+		this.skuPropertyValue = skuPropertyValue;
+	}
+
+	@XmlElement(name = "service_tips")
+	public String getServiceTips() {
+		return serviceTips;
+	}
+
+	public void setServiceTips(String serviceTips) {
+		this.serviceTips = serviceTips;
+	}
+
+	@XmlElement(name = "deal_type")
+	public String getDealType() {
+		return dealType;
+	}
+
+	public void setDealType(String dealType) {
+		this.dealType = dealType;
+	}
+
+	@XmlElement(name = "deal_type_name")
+	public String getDealTypeName() {
+		return dealTypeName;
+	}
+
+	public void setDealTypeName(String dealTypeName) {
+		this.dealTypeName = dealTypeName;
+	}
+
+	@XmlElement(name = "apply_name")
+	public String getApplyName() {
+		return applyName;
+	}
+
+	public void setApplyName(String applyName) {
+		this.applyName = applyName;
+	}
+
+	@XmlElement(name = "apply_time")
+	public Date getApplyTime() {
+		return applyTime;
+	}
+
+	public void setApplyTime(Date applyTime) {
+		this.applyTime = applyTime;
+	}
+
+	@XmlElement(name = "apply_phone")
+	public String getApplyPhone() {
+		return applyPhone;
+	}
+
+	public void setApplyPhone(String applyPhone) {
+		this.applyPhone = applyPhone;
+	}
+
+
+	@XmlElement(name = "refund_reason_type_name")
+	public String getRefundReasonTypeName() {
+		return refundReasonTypeName;
+	}
+
+	public void setRefundReasonTypeName(String refundReasonTypeName) {
+		this.refundReasonTypeName = refundReasonTypeName;
+	}
+
+	@XmlElement(name = "marked_words")
+	public String getMarkedWords() {
+		return markedWords;
+	}
+
+	public void setMarkedWords(String markedWords) {
+		this.markedWords = markedWords;
+	}
+
+	@XmlElement(name = "start_time")
+	public Date getStartTime() {
+		return startTime;
+	}
+
+	public void setStartTime(Date startTime) {
+		this.startTime = startTime;
+	}
+
+	@XmlElement(name = "end_time")
+	public Date getEndTime() {
+		return endTime;
+	}
+
+	public void setEndTime(Date endTime) {
+		this.endTime = endTime;
+	}
+
+	@XmlElement(name = "refund_goods_price")
+	public BigDecimal getRefundGoodsPrice() {
+		return refundGoodsPrice;
+	}
+
+	public void setRefundGoodsPrice(BigDecimal refundGoodsPrice) {
+		this.refundGoodsPrice = refundGoodsPrice;
+	}
+
+	@XmlElement(name = "refund_express_price")
+	public BigDecimal getRefundExpressPrice() {
+		return refundExpressPrice;
+	}
+
+	public void setRefundExpressPrice(BigDecimal refundExpressPrice) {
+		this.refundExpressPrice = refundExpressPrice;
+	}
+
+	@XmlElement(name = "refund_count")
+	public Short getRefundCount() {
+		return refundCount;
+	}
+
+	public void setRefundCount(Short refundCount) {
+		this.refundCount = refundCount;
+	}
+
+	@XmlElement(name = "refund_price")
+	public BigDecimal getRefundPrice() {
+		return refundPrice;
+	}
+
+	public void setRefundPrice(BigDecimal refundPrice) {
+		this.refundPrice = refundPrice;
+	}
+
+	@XmlElement(name="product_price")
+	public BigDecimal getProductPrice() {
+		return productPrice;
+	}
+
+	public void setProductPrice(BigDecimal productPrice) {
+		this.productPrice = productPrice;
+	}
+	
+	
+}

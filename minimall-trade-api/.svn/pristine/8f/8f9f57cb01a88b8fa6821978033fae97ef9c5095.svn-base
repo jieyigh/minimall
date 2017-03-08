@@ -1,0 +1,124 @@
+package com.jbh360.trade.vo.param;
+
+public class OrderExpressParams {
+
+	
+	private String name;
+	
+	private Long fk_trade_id;
+	
+	private Long fk_order_id;
+	
+	private Long order_express_id;
+	
+	private String express_bill_no;
+	
+	//业务单号（快递单号或者订单号）
+	private String bill_no;
+	
+	
+	private String city_ccode;//城市代码
+	
+	private Integer total_volume;//总重量
+	
+	private Long express_template_id;//运费模板ID
+	
+	
+	private Integer page_no;
+		
+	private Integer page_size; 
+	
+	
+	
+		
+
+	public Integer getPage_no() {
+		return page_no;
+	}
+
+	public void setPage_no(Integer page_no) {
+		this.page_no = page_no;
+	}
+
+	public Integer getPage_size() {
+		return page_size;
+	}
+
+	public void setPage_size(Integer page_size) {
+		this.page_size = page_size;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public Long getFk_trade_id() {
+		return fk_trade_id;
+	}
+
+	public void setFk_trade_id(Long fk_trade_id) {
+		this.fk_trade_id = fk_trade_id;
+	}
+
+	public Long getFk_order_id() {
+		return fk_order_id;
+	}
+
+	public void setFk_order_id(Long fk_order_id) {
+		this.fk_order_id = fk_order_id;
+	}
+
+	public Long getOrder_express_id() {
+		return order_express_id;
+	}
+
+	public void setOrder_express_id(Long order_express_id) {
+		this.order_express_id = order_express_id;
+	}
+
+	public String getExpress_bill_no() {
+		return express_bill_no;
+	}
+
+	public void setExpress_bill_no(String express_bill_no) {
+		this.express_bill_no = express_bill_no;
+	}
+
+	public String getBill_no() {
+		return bill_no;
+	}
+
+	public void setBill_no(String bill_no) {
+		this.bill_no = bill_no;
+	}
+
+	public String getCity_ccode() {
+		return city_ccode;
+	}
+
+	public void setCity_ccode(String city_ccode) {
+		this.city_ccode = city_ccode;
+	}
+
+	public Integer getTotal_volume() {
+		return total_volume;
+	}
+
+	public void setTotal_volume(Integer total_volume) {
+		this.total_volume = total_volume;
+	}
+
+	public Long getExpress_template_id() {
+		return express_template_id;
+	}
+
+	public void setExpress_template_id(Long express_template_id) {
+		this.express_template_id = express_template_id;
+	}
+
+	
+}

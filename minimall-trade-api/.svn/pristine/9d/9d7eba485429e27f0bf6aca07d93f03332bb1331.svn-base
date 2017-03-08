@@ -1,0 +1,593 @@
+package com.jbh360.trade.controller;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.ErrorResultResponseTag;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.Page;
+import com.jbh360.common.utils.ValidateUtil;
+import com.jbh360.trade.service.OrderServiceServiceImpl;
+import com.jbh360.trade.vo.param.OrderServiceParams;
+import com.jbh360.trade.vo.param.OrderServiceParams.OrderServiceApplyParams;
+import com.jbh360.trade.vo.param.OrderServiceParams.OrderServiceExpressParams;
+import com.jbh360.trade.vo.param.OrderServiceParams.OrderServiceIdNotNullParams;
+import com.jbh360.trade.vo.param.OrderServiceParams.OrderServicePriceCheckParams;
+import com.jbh360.trade.vo.param.OrderServiceParams.OrderServiceRefuseParams;
+import com.jbh360.trade.vo.rs.OrderServiceDealType;
+import com.jbh360.trade.vo.rs.OrderServiceDealTypeList;
+import com.jbh360.trade.vo.rs.OrderServiceGetResult;
+import com.jbh360.trade.vo.rs.OrderServiceListResult;
+import com.jbh360.trade.vo.rs.OrderServiceMaxRefundPrice;
+import com.jbh360.trade.vo.rs.OrderServiceRefundReasonType;
+import com.jbh360.trade.vo.rs.OrderServiceRefundReasonTypeList;
+import com.jbh360.trade.vo.rs.OrderServiceResponseTag;
+import com.jbh360.trade.vo.rs.OrderServiceResult;
+
+/**
+ * 
+ * @Title: OrderServiceController.java
+ * @Package com.jbh360.trade.controller
+ * @ClassName: OrderServiceController
+ * @Description: 订单售后
+ * @author 揭懿
+ * @email yi.jie@yooyo.com
+ * @date 2015年10月31日 下午3:05:09
+ * @version V3.0
+ */
+@Controller
+@RequestMapping("/order/service")
+public class OrderServiceController extends BaseController {
+    @Autowired
+    protected OrderServiceServiceImpl orderServiceService;
+    
+    
+    /**
+     * 
+     * @Title: maxRefundPrice
+     * @Description: 获取最多退款金额
+     * @date 2015年11月2日 下午8:45:19
+     * @author 揭懿
+     * @param params
+     * @param bindingResult
+     * @return
+     */
+    @RequestMapping(value = "/max/refund/price", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object maxRefundPrice(OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceMaxRefundPrice orderServiceMaxRefundPrice = new OrderServiceMaxRefundPrice();
+			BigDecimal maxRefundPrice = orderServiceService.getMaxRefundPrice(params);
+			orderServiceMaxRefundPrice.setMaxRefundPrice(maxRefundPrice);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setOrderServiceMaxRefundPrice(orderServiceMaxRefundPrice);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+    
+    
+    /**
+	 * @方法概述 
+	 * @作者 揭懿
+	 * @return
+	 */
+	@RequestMapping(value = "deal/type", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object dealType(OrderServiceParams params) {
+		//查询
+		List<OrderServiceDealType> typeList = orderServiceService.getOrderServiceDealType(params);
+		
+		OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+		OrderServiceDealTypeList typeLists = new OrderServiceDealTypeList();
+		typeLists.setDealTypes(typeList);
+		responseTag.setOrderServiceDealTypeList(typeLists);
+		return responseTag;
+	}
+	
+	@RequestMapping(value = "refund/reason/type", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object refundReasonType() {
+		//查询
+		List<OrderServiceRefundReasonType> typeList = orderServiceService.getOrderServiceRefundReasonType();
+		
+		OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+		OrderServiceRefundReasonTypeList typeLists = new OrderServiceRefundReasonTypeList();
+		typeLists.setReasonTypes(typeList);
+		responseTag.setOrderServiceRefundReasonTypeList(typeLists);
+		return responseTag;
+	}
+	
+	/**
+	 * 申请售后
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "apply", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object apply(@Validated({OrderServiceApplyParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			//增加
+			OrderServiceResult orderServiceResult = orderServiceService.apply(params, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			OrderServiceGetResult orderServiceApplyResult = new OrderServiceGetResult();
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			orderServiceApplyResult.setOrderServiceResult(orderServiceResult);
+			responseTag.setOrderServiceApplyResult(orderServiceApplyResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 同意
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "agree", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object agree(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.agree(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setAgreeSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 拒绝
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "refuse", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object refuse(@Validated({OrderServiceRefuseParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.refuse(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setRefuseSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 申请客服介入
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "consult", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object consult(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.consult(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setConsultSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 撤销客服介入
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "consult/cancel", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object consultCancel(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.cancelConsult(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setCancelConsultSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+    
+	/**
+	 * 关闭售后
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "close", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object close(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.close(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setCloseSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 填写退货物流
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "express/set", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object expressSet(@Validated({OrderServiceExpressParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.setExpress(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setExpressSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 确认收货并退款
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "receiving/confirm", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object receivingConfirm(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.confirmReceiving(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setConfirmReceivingSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 拒绝确认收货
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "receiving/refuse", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object receivingRefuse(@Validated({OrderServiceIdNotNullParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.refuseReceiving(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setRefuseReceivingSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	
+	/**
+	 * 判断退款金额接口
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "price/check", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object priceCheck(@Validated({OrderServicePriceCheckParams.class}) OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			SuccessResult successResult = new SuccessResult();
+			orderServiceService.checkPrice(params, successResult, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setCheckPriceSuccessResult(successResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	
+	
+	/**
+	 * 获取售后单详情接口
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "get", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object get(OrderServiceParams params,BindingResult bindingResult){
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceGetResult orderServiceGetResult = new OrderServiceGetResult();
+			OrderServiceResult orderServiceResult = orderServiceService.getOrderServiceResult(params, error);
+			orderServiceGetResult.setOrderServiceResult(orderServiceResult);
+			
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setOrderServiceGetResult(orderServiceGetResult);
+			return responseTag;
+			 
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	
+	/**
+	 * 
+	 * @Title: list
+	 * @Description: 售后单列表
+	 * @date 2015年10月31日 下午3:47:27
+	 * @author 揭懿
+	 * @param params
+	 * @return
+	 */
+	@RequestMapping(value = "/list", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object list(OrderServiceParams params){
+		ErrorResult error = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		try {
+			Page<OrderServiceResult> page = new Page<OrderServiceResult>();
+			if (null == params.getPage_no() ) {
+				params.setPage_no(1);
+			}
+
+			if (null == params.getPage_size() ) {
+				params.setPage_size(10);
+			}
+			
+			page =  orderServiceService.getOrderServiceLists(page, params);
+			OrderServiceListResult orderServiceListResult = new OrderServiceListResult(params.getPage_size(), params.getPage_no(), page.getTotalCount());
+			orderServiceListResult.setOrderServiceResult(page.getResult());
+			OrderServiceResponseTag responseTag = new OrderServiceResponseTag();
+			responseTag.setOrderServiceListResult(orderServiceListResult);
+			return responseTag;
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+}

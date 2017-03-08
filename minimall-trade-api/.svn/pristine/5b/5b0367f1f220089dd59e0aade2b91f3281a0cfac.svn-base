@@ -1,0 +1,313 @@
+package com.jbh360.trade.vo.param;
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+
+import org.hibernate.validator.constraints.NotEmpty;
+
+import com.jbh360.trade.validator.Money;
+
+public class OrderServiceParams {
+	
+	public interface OrderServiceApplyParams{};
+	public interface OrderServiceExpressParams{};
+	public interface OrderServiceRefuseParams{};
+	
+	public interface OrderServiceIdNotNullParams{};
+	
+	@NotNull(groups={OrderServiceApplyParams.class})
+	private Long fk_trade_id;//交易单ID
+	
+	private Long fk_order_detail_id;//订单详细ID
+	
+	@NotEmpty(groups={OrderServiceApplyParams.class})
+	private String deal_type;//处理方式
+	
+	@NotNull(groups={OrderServiceApplyParams.class})
+	private Short refund_reason_type_id;//退款原因（申请理由）
+	
+	@NotEmpty(groups={OrderServiceApplyParams.class})
+	@Money(groups={OrderServiceApplyParams.class})
+	private String refund_price;//退款金额
+	
+	@NotEmpty(groups={OrderServiceApplyParams.class})
+	@Pattern(regexp="^1[3-9][0-9]{9}$",groups={OrderServiceApplyParams.class})	
+	private String apply_phone;//手机号码
+	
+	private String apply_remark;//备注信息
+	private String[] pic_rsurl;//图片举证
+
+	@NotNull(groups={OrderServiceApplyParams.class})
+	private Long fk_order_id;//订单ID
+	
+	@NotNull(groups={OrderServiceIdNotNullParams.class
+			,OrderServiceRefuseParams.class
+			,OrderServiceExpressParams.class})
+	private Long order_service_id;//订单售后ID
+	
+	
+	private Long current_user_id;
+	
+	
+	private String receiver_info;
+	private String order_service_state;
+	private String product_name;
+	private String phone_no;
+	private String name;
+	private String state_code;
+	
+	@NotNull(groups={OrderServiceExpressParams.class})
+	private Long buyer_express_company_id;
+	
+	@NotEmpty(groups={OrderServiceExpressParams.class})
+	private String buyer_express_bill_no;
+	
+	@NotEmpty(groups={OrderServiceExpressParams.class})
+	@Pattern(regexp="^1[3-9][0-9]{9}$",groups={OrderServiceExpressParams.class})	
+	private String buyer_express_phone;
+	
+	private String buyer_express_remark;	
+	private String[] buyer_express_pic_rsurl;
+	
+	private String return_address;
+	
+	@NotEmpty(groups={OrderServiceRefuseParams.class})
+	private String refuse_reason;
+	
+	private String return_phone;
+	
+	private String return_remark;
+	
+    private Integer page_no;
+	
+	private Integer page_size; 
+	
+
+	public Long getFk_order_id() {
+		return fk_order_id;
+	}
+
+	public void setFk_order_id(Long fk_order_id) {
+		this.fk_order_id = fk_order_id;
+	}
+
+	public Long getFk_trade_id() {
+		return fk_trade_id;
+	}
+
+	public void setFk_trade_id(Long fk_trade_id) {
+		this.fk_trade_id = fk_trade_id;
+	}
+
+	public Long getFk_order_detail_id() {
+		return fk_order_detail_id;
+	}
+
+	public void setFk_order_detail_id(Long fk_order_detail_id) {
+		this.fk_order_detail_id = fk_order_detail_id;
+	}
+
+	public String getDeal_type() {
+		return deal_type;
+	}
+
+	public void setDeal_type(String deal_type) {
+		this.deal_type = deal_type;
+	}
+
+	public Short getRefund_reason_type_id() {
+		return refund_reason_type_id;
+	}
+
+	public void setRefund_reason_type_id(Short refund_reason_type_id) {
+		this.refund_reason_type_id = refund_reason_type_id;
+	}
+
+	public String getRefund_price() {
+		return refund_price;
+	}
+
+	public void setRefund_price(String refund_price) {
+		this.refund_price = refund_price;
+	}
+
+	public String getApply_phone() {
+		return apply_phone;
+	}
+
+	public void setApply_phone(String apply_phone) {
+		this.apply_phone = apply_phone;
+	}
+
+	public String getApply_remark() {
+		return apply_remark;
+	}
+
+	public void setApply_remark(String apply_remark) {
+		this.apply_remark = apply_remark;
+	}
+
+	public String[] getPic_rsurl() {
+		return pic_rsurl;
+	}
+
+	public void setPic_rsurl(String[] pic_rsurl) {
+		this.pic_rsurl = pic_rsurl;
+	}
+
+	public Long getOrder_service_id() {
+		return order_service_id;
+	}
+
+	public void setOrder_service_id(Long order_service_id) {
+		this.order_service_id = order_service_id;
+	}
+
+	public Long getCurrent_user_id() {
+		return current_user_id;
+	}
+
+	public void setCurrent_user_id(Long current_user_id) {
+		this.current_user_id = current_user_id;
+	}
+
+	public String getReceiver_info() {
+		return receiver_info;
+	}
+
+	public void setReceiver_info(String receiver_info) {
+		this.receiver_info = receiver_info;
+	}
+
+	public String getOrder_service_state() {
+		return order_service_state;
+	}
+
+	public void setOrder_service_state(String order_service_state) {
+		this.order_service_state = order_service_state;
+	}
+
+	public String getProduct_name() {
+		return product_name;
+	}
+
+	public void setProduct_name(String product_name) {
+		this.product_name = product_name;
+	}
+
+	public String getPhone_no() {
+		return phone_no;
+	}
+
+	public void setPhone_no(String phone_no) {
+		this.phone_no = phone_no;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getState_code() {
+		return state_code;
+	}
+
+	public void setState_code(String state_code) {
+		this.state_code = state_code;
+	}
+
+	public Long getBuyer_express_company_id() {
+		return buyer_express_company_id;
+	}
+
+	public void setBuyer_express_company_id(Long buyer_express_company_id) {
+		this.buyer_express_company_id = buyer_express_company_id;
+	}
+
+	public String getBuyer_express_bill_no() {
+		return buyer_express_bill_no;
+	}
+
+	public void setBuyer_express_bill_no(String buyer_express_bill_no) {
+		this.buyer_express_bill_no = buyer_express_bill_no;
+	}
+
+	public String getBuyer_express_phone() {
+		return buyer_express_phone;
+	}
+
+	public void setBuyer_express_phone(String buyer_express_phone) {
+		this.buyer_express_phone = buyer_express_phone;
+	}
+
+	public String getBuyer_express_remark() {
+		return buyer_express_remark;
+	}
+
+	public void setBuyer_express_remark(String buyer_express_remark) {
+		this.buyer_express_remark = buyer_express_remark;
+	}
+
+	public String[] getBuyer_express_pic_rsurl() {
+		return buyer_express_pic_rsurl;
+	}
+
+	public void setBuyer_express_pic_rsurl(String[] buyer_express_pic_rsurl) {
+		this.buyer_express_pic_rsurl = buyer_express_pic_rsurl;
+	}
+
+	public String getReturn_address() {
+		return return_address;
+	}
+
+	public void setReturn_address(String return_address) {
+		this.return_address = return_address;
+	}
+
+	public String getRefuse_reason() {
+		return refuse_reason;
+	}
+
+	public void setRefuse_reason(String refuse_reason) {
+		this.refuse_reason = refuse_reason;
+	}
+
+	public Integer getPage_no() {
+		return page_no;
+	}
+
+	public void setPage_no(Integer page_no) {
+		this.page_no = page_no;
+	}
+
+	public Integer getPage_size() {
+		return page_size;
+	}
+
+	public void setPage_size(Integer page_size) {
+		this.page_size = page_size;
+	}
+
+	public String getReturn_phone() {
+		return return_phone;
+	}
+
+	public void setReturn_phone(String return_phone) {
+		this.return_phone = return_phone;
+	}
+
+	public String getReturn_remark() {
+		return return_remark;
+	}
+
+	public void setReturn_remark(String return_remark) {
+		this.return_remark = return_remark;
+	}
+	
+	
+	
+	
+}

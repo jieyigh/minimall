@@ -1,0 +1,59 @@
+package com.jbh360.trade.vo.rs;
+
+import javax.xml.bind.annotation.XmlElement;
+
+public class OrderResponseTag {
+	
+	private PayResult payResult;
+	
+	
+	private OrderExpressGetResult orderExpressGetResult;
+	
+	
+	private OrderExpressListResult orderExpressListResult;
+	
+	
+	private OrderPayResult orderPayResult;
+	
+	
+	
+	@XmlElement(name="minimall_order_pay_order_get_response")
+	public OrderPayResult getOrderPayResult() {
+		return orderPayResult;
+	}
+
+	public void setOrderPayResult(OrderPayResult orderPayResult) {
+		this.orderPayResult = orderPayResult;
+	}
+
+	@XmlElement(name="minimall_trade_express_list_response")
+	public OrderExpressListResult getOrderExpressListResult() {
+		return orderExpressListResult;
+	}
+
+	public void setOrderExpressListResult(
+			OrderExpressListResult orderExpressListResult) {
+		this.orderExpressListResult = orderExpressListResult;
+	}
+
+	@XmlElement(name="minimall_trade_express_get_response")
+	public OrderExpressGetResult getOrderExpressGetResult() {
+		return orderExpressGetResult;
+	}
+
+	public void setOrderExpressGetResult(OrderExpressGetResult orderExpressGetResult) {
+		this.orderExpressGetResult = orderExpressGetResult;
+	}
+
+	@XmlElement(name="minimall_order_pay_response")
+	public PayResult getPayResult() {
+		return payResult;
+	}
+
+	public void setPayResult(PayResult payResult) {
+		this.payResult = payResult;
+	}
+	
+	
+
+}

@@ -1,0 +1,163 @@
+package com.jbh360.trade.controller;
+
+import java.io.IOException;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.ErrorResultResponseTag;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.ValidateUtil;
+import com.jbh360.trade.service.OrderPayServiceImpl;
+import com.jbh360.trade.vo.param.OrderPayParams;
+import com.jbh360.trade.vo.param.OrderPayParams.OrderPayIdNotNullParams;
+import com.jbh360.trade.vo.param.OrderPayParams.OrderPayNotNullParams;
+import com.jbh360.trade.vo.rs.OrderPayResult;
+import com.jbh360.trade.vo.rs.OrderResponseTag;
+import com.jbh360.trade.vo.rs.PayResult;
+
+/**
+ * 
+ * @Title: OrderPayController.java
+ * @Package com.jbh360.trade.controller
+ * @ClassName: OrderPayController
+ * @Description: 订单支付
+ * @author 揭懿
+ * @email yi.jie@yooyo.com
+ * @date 2015年10月8日 下午8:08:15
+ * @version V3.0
+ */
+@Controller
+public class OrderPayController extends BaseController {
+
+	@Autowired
+	protected OrderPayServiceImpl orderPayServiceImpl;
+	
+	
+	/**
+	 * 
+	 * @Title: pay
+	 * @Description: 支付
+	 * @date 2015年10月9日 下午3:21:35
+	 * @author 揭懿
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "order/pay", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object pay(@Validated({OrderPayNotNullParams.class}) OrderPayParams params,BindingResult bindingResult) {
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {
+			// 验证表单
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}	
+			
+			PayResult payResult = orderPayServiceImpl.pay(params, error);
+			if(error!=null&&!StringUtils.isBlank(error.getErrorCode())){
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			OrderResponseTag responseTag = new OrderResponseTag();
+			responseTag.setPayResult(payResult);
+			return responseTag;
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+	
+	/**
+	 * 
+	 * @Title: asyncNotice
+	 * @Description: 支付成功异步通知
+	 * @date 2015年10月9日 下午3:20:21
+	 * @author 揭懿
+	 * @param params
+	 * @param request
+	 * @param response
+	 * @throws IOException
+	 */
+	@RequestMapping(value = "order/pay/async/notice", method = { RequestMethod.POST,RequestMethod.GET })
+	public void asyncNotice(OrderPayResult params,HttpServletRequest request,HttpServletResponse response) throws IOException{
+		logger.info("支付异步通知Notice来啦！^_^");
+		boolean isTrue = this.orderPayServiceImpl.checkPayResult(params, request);
+		logger.info("验证结果：" + isTrue);
+		if(isTrue){
+			ErrorResult error= new ErrorResult();
+			SuccessResult successResult = new SuccessResult();
+			this.orderPayServiceImpl.asyncNoticeTrade(params, successResult , error);
+			if(successResult.isIs_success()){
+				response.getWriter().write("success");
+			}
+		}
+	}
+	
+	
+	@RequestMapping(value = "order/pay/sync/notice", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object syncNotice(@Valid OrderPayParams params,BindingResult bindingResult) {
+		return null;
+	}
+	
+	/**
+	 * 
+	 * @Title: getPayOrder
+	 * @Description: 获取支付单信息接口
+	 * @date 2015年10月9日 下午3:21:17
+	 * @author 揭懿
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "order/pay/order/get", method = { RequestMethod.POST,
+			RequestMethod.GET })
+	public @ResponseBody
+	Object getPayOrder(
+			@Validated({OrderPayIdNotNullParams.class}) OrderPayParams params,
+			BindingResult bindingResult) {
+		
+		ErrorResult error = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag = new ErrorResultResponseTag();
+		try {
+			if (bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+
+			OrderPayResult orderPayResult = orderPayServiceImpl.getPayOrder(params, error);
+			if (error != null && !StringUtils.isBlank(error.getErrorCode())) {
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			return orderPayResult;
+
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+}

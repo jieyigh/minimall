@@ -1,0 +1,26 @@
+package com.jbh360.trade.validator;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import javax.validation.Constraint;
+import javax.validation.ConstraintTarget;
+import javax.validation.Payload;
+
+@Constraint(validatedBy = {CrossParameterScriptAssertParameterValidator.class})  
+@Target({ ElementType.TYPE, ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.ANNOTATION_TYPE })  
+@Retention(RetentionPolicy.RUNTIME)  
+@Documented  
+public @interface CrossParameterScriptAssert {
+	 	String message() default "error";  
+	    Class<?>[] groups() default { };  
+	    Class<? extends Payload>[] payload() default { };  
+	    String script();  
+	    String lang();  
+	    String alias() default "_this";  
+	    String property() default "";  
+	    ConstraintTarget validationAppliesTo() default ConstraintTarget.IMPLICIT; 
+}

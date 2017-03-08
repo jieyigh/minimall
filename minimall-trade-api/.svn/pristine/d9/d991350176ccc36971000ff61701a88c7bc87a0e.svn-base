@@ -1,0 +1,219 @@
+package com.jbh360.trade.vo;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlElements;
+
+
+public class OrderResult implements Serializable {
+	
+	private static final long serialVersionUID = 3410017097424154995L;
+
+	private Long order_id;
+	
+	private String order_no;
+	
+	private String state_code;
+	
+	private String state_name;
+	
+	private Short order_type;
+	
+	private Long seller_store_id;
+	
+	private String seller_store_name;
+	
+	private BigDecimal order_goods_total_amount;
+	
+	private BigDecimal payment_amount;
+	
+	private BigDecimal discount_amount;
+	
+	private BigDecimal order_freight_amount;
+	
+	private Date start_time;
+	
+	private Date pay_time;
+	
+	private Date last_sign_time;
+	
+	private String buyer_remark;
+	
+	private Long fk_trade_id;
+	
+	private OrderPickupResult pickup_info;
+	
+	private List<UcOrderGoodResult> good_lists;
+
+	@XmlElement(name="order_id")
+	public Long getOrder_id() {
+		return order_id;
+	}
+
+	public void setOrder_id(Long order_id) {
+		this.order_id = order_id;
+	}
+
+	@XmlElement(name="order_no")
+	public String getOrder_no() {
+		return order_no;
+	}
+
+	public void setOrder_no(String order_no) {
+		this.order_no = order_no;
+	}
+
+	@XmlElement(name="state_code")
+	public String getState_code() {
+		return state_code;
+	}
+
+	public void setState_code(String state_code) {
+		this.state_code = state_code;
+	}
+
+	@XmlElement(name="state_name")
+	public String getState_name() {
+		return state_name;
+	}
+
+	public void setState_name(String state_name) {
+		this.state_name = state_name;
+	}
+
+	@XmlElement(name="payment_amount")
+	public BigDecimal getPayment_amount() {
+		return payment_amount;
+	}
+
+	public void setPayment_amount(BigDecimal payment_amount) {
+		this.payment_amount = payment_amount;
+	}
+
+	@XmlElement(name="order_freight_amount")
+	public BigDecimal getOrder_freight_amount() {
+		return order_freight_amount;
+	}
+
+	public void setOrder_freight_amount(BigDecimal order_freight_amount) {
+		this.order_freight_amount = order_freight_amount;
+	}
+
+	@XmlElementWrapper(name="good_lists")
+	@XmlElements({
+		@XmlElement(name="good_list",type=UcOrderGoodResult.class)		
+	})
+	public List<UcOrderGoodResult> getGood_lists() {
+		return good_lists;
+	}
+
+	public void setGood_lists(List<UcOrderGoodResult> good_lists) {
+		this.good_lists = good_lists;
+	}
+
+	@XmlElement(name="order_type")
+	public Short getOrder_type() {
+		return order_type;
+	}
+
+	public void setOrder_type(Short order_type) {
+		this.order_type = order_type;
+	}
+
+	@XmlElement(name="seller_store_id")
+	public Long getSeller_store_id() {
+		return seller_store_id;
+	}
+
+	public void setSeller_store_id(Long seller_store_id) {
+		this.seller_store_id = seller_store_id;
+	}
+
+	@XmlElement(name="seller_store_name")
+	public String getSeller_store_name() {
+		return seller_store_name;
+	}
+
+	public void setSeller_store_name(String seller_store_name) {
+		this.seller_store_name = seller_store_name;
+	}
+
+	@XmlElement(name="order_goods_total_amount")
+	public BigDecimal getOrder_goods_total_amount() {
+		return order_goods_total_amount;
+	}
+
+	public void setOrder_goods_total_amount(BigDecimal order_goods_total_amount) {
+		this.order_goods_total_amount = order_goods_total_amount;
+	}
+
+	@XmlElement(name="discount_amount")
+	public BigDecimal getDiscount_amount() {
+		return discount_amount;
+	}
+
+	public void setDiscount_amount(BigDecimal discount_amount) {
+		this.discount_amount = discount_amount;
+	}
+
+	@XmlElement(name="start_time")
+	public Date getStart_time() {
+		return start_time;
+	}
+
+	public void setStart_time(Date start_time) {
+		this.start_time = start_time;
+	}
+
+	@XmlElement(name="pay_time")
+	public Date getPay_time() {
+		return pay_time;
+	}
+
+	public void setPay_time(Date pay_time) {
+		this.pay_time = pay_time;
+	}
+
+	@XmlElement(name="last_sign_time")
+	public Date getLast_sign_time() {
+		return last_sign_time;
+	}
+
+	public void setLast_sign_time(Date last_sign_time) {
+		this.last_sign_time = last_sign_time;
+	}
+
+	@XmlElement(name="buyer_remark")
+	public String getBuyer_remark() {
+		return buyer_remark;
+	}
+
+	public void setBuyer_remark(String buyer_remark) {
+		this.buyer_remark = buyer_remark;
+	}
+
+	@XmlElement(name="pickup_info",type=OrderPickupResult.class)
+	public OrderPickupResult getPickup_info() {
+		return pickup_info;
+	}
+
+	public void setPickup_info(OrderPickupResult pickup_info) {
+		this.pickup_info = pickup_info;
+	}
+
+	@XmlElement(name="fk_trade_id")
+	public Long getFk_trade_id() {
+		return fk_trade_id;
+	}
+
+	public void setFk_trade_id(Long fk_trade_id) {
+		this.fk_trade_id = fk_trade_id;
+	}
+
+	
+}

@@ -1,0 +1,19 @@
+package com.jbh360.trade.dao;
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.session.RowBounds;
+
+import com.jbh360.trade.vo.param.OrderExpressParams;
+import com.jbh360.trade.vo.rs.OrderExpressVo;
+
+
+
+public interface OrderExpressDao {
+
+	public List<OrderExpressVo> getOrderExpressVoLists(RowBounds rowBounds, @Param("params")OrderExpressParams params);
+	
+	public Long countOrderExpressVoLists(@Param("params")OrderExpressParams params);
+	
+}

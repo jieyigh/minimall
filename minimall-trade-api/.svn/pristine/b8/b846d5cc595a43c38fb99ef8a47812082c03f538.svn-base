@@ -1,0 +1,20 @@
+package com.jbh360.trade.vo.rs;
+
+import javax.xml.bind.annotation.XmlElement;
+
+public class OrderResponseTag {
+	
+	private PayResult payResult;
+
+	@XmlElement(name="minimall_order_pay_response")
+	public PayResult getPayResult() {
+		return payResult;
+	}
+
+	public void setPayResult(PayResult payResult) {
+		this.payResult = payResult;
+	}
+	
+	
+
+}

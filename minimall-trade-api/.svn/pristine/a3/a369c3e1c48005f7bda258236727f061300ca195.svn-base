@@ -1,0 +1,88 @@
+package com.jbh360.trade.controller;
+
+import javax.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.ErrorResultResponseTag;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.ValidateUtil;
+import com.jbh360.trade.service.TradeService;
+import com.jbh360.trade.vo.param.AppTradeParam;
+import com.jbh360.trade.vo.param.WapTradeParam;
+import com.jbh360.trade.vo.rs.TradeResult;
+import com.jbh360.trade.vo.tag.TradeResponseTag;
+
+/**  
+* @Title: OrderController.java
+* @Package com.jbh360.trade.controller
+* @Description: TODO(用一句话描述该文件做什么)
+* @author joe 
+* @email aboutou@126.com 
+* @date 2015年10月3日 上午11:38:32
+* @version V3.0  
+*/
+@Controller
+public class TradeController {
+	
+	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+	@Autowired
+	private TradeService tradeService;
+	
+	@RequestMapping(value = "/trade/app/add", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object addAPP(@Valid AppTradeParam params, BindingResult bindingResult) {
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			//增加
+			TradeResult result = tradeService.appAdd(params);
+			TradeResponseTag tag = new TradeResponseTag(result);
+			return tag;
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+		
+	}
+	@RequestMapping(value = "/trade/wap/add", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object addWAP(@Valid WapTradeParam params, BindingResult bindingResult) {
+		ErrorResult error= new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		try {	
+			if(bindingResult.hasErrors()) {
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			//增加
+			TradeResult result = tradeService.wapAdd(params);
+			TradeResponseTag tag = new TradeResponseTag(result);
+			return tag;
+		} catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+		
+	}
+}

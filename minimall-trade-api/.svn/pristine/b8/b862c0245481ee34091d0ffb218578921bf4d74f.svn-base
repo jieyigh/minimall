@@ -1,0 +1,135 @@
+package com.jbh360.trade.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.member.oms.entity.Member;
+import com.jbh360.member.oms.mapper.MemberMapper;
+import com.jbh360.trade.dao.OrderDao;
+import com.jbh360.trade.dao.TradeDao;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.entity.Trade;
+import com.jbh360.trade.entity.TradeOrderRecord;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.TradeMapper;
+import com.jbh360.trade.mapper.TradeOrderRecordMapper;
+import com.jbh360.trade.vo.param.OrderParams;
+import com.jbh360.trade.vo.rs.OrderVo;
+import com.jbh360.trade.vo.rs.TradeVo;
+
+
+@Service
+public class OrderServiceImpl {
+
+	@Autowired
+	private TradeMapper tradeMapper;
+	
+	
+	@Autowired
+	private OrderMapper orderMapper;
+	
+	
+	@Autowired
+	private MemberMapper memberMapper;
+	
+	@Autowired
+	private OrderDao orderDao;
+	
+	
+	@Autowired
+	private TradeDao tradeDao;
+	
+	
+	@Autowired
+	private TradeOrderRecordMapper tradeOrderRecordMapper;
+	
+	
+	
+	public String getUserName(OrderParams params){
+    	String userName = null;
+    	if(null != params.getMember_id()){
+    		Member member = memberMapper.selectByPrimaryKey(params.getMember_id());
+        	if(null != member){
+        		userName = member.getRealName();
+        	}
+    	}
+    	return userName;
+    }
+	
+	public void close(OrderParams params,SuccessResult successResult,ErrorResult error){
+		String userName = getUserName(params);
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderVo orderVo = orderDao.selectByPrimaryKeyForUpdate(params.getOrder_id());
+		
+    	
+    	String stateCode = Constants.OrderStateCode.交易关闭.getKey();
+    	String stateName = Constants.OrderStateCode.交易关闭.getValue();
+    	
+		if(null != orderVo){
+			
+			Order record = new Order();
+			record.setId(orderVo.getId());
+			record.setStateCode(stateCode);
+			record.setStateName(stateName);
+			record.setEndTime(DateUtil.now());
+			
+			
+			record.setLastUpdateTime(DateUtil.now());
+			record.setLastUpdateUserId(params.getMember_id());
+			
+			orderMapper.updateByPrimaryKeySelective(record);
+			
+			
+			
+			//更新trade
+			TradeVo tradeVo = tradeDao.selectByPrimaryKeyForUpdate(record.getFkTradeId());
+			
+			if(null != tradeVo){
+				Trade trade = new Trade();
+				trade.setId(tradeVo.getId());
+				
+				trade.setStateCode(stateCode);
+				trade.setStateName(stateName);
+				
+				trade.setLastUpdateTime(DateUtil.now());
+				trade.setLastUpdateUserId(params.getMember_id());
+				
+				tradeMapper.updateByPrimaryKeySelective(trade);
+			}
+			
+			
+			
+			//交易订单操作流水表
+			TradeOrderRecord tradeOrderRecord = new TradeOrderRecord();
+			
+			tradeOrderRecord.setFkTradeId(orderVo.getFkTradeId());
+			tradeOrderRecord.setFkOrderId(orderVo.getId());
+			
+			tradeOrderRecord.setOpType(Constants.TradeOrderRecordOpType.关闭订单.getValue());
+			tradeOrderRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getValue());
+			tradeOrderRecord.setOpUserId(params.getMember_id());
+			tradeOrderRecord.setOpUserName(userName);
+			tradeOrderRecord.setOpTime(DateUtil.now());
+			
+			tradeOrderRecordMapper.insertSelective(tradeOrderRecord);
+			successResult.setIs_success(true);
+			
+			
+			
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderErrorCode.ORDER_NO_EXISTENCE);
+    		error.setErrorMessage("订单无效");
+    		return;
+		}
+	}
+}

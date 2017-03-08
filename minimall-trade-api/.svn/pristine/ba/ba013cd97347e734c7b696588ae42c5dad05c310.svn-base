@@ -1,0 +1,221 @@
+package com.jbh360.trade.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.ErrorResultResponseTag;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.ServiceException;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.ValidateUtil;
+import com.jbh360.trade.service.PurchaseCartServiceImpl;
+import com.jbh360.trade.vo.PurchaseCartAddResponseTag;
+import com.jbh360.trade.vo.PurchaseCartDeleteResponseTag;
+import com.jbh360.trade.vo.PurchaseCartListResponseTag;
+import com.jbh360.trade.vo.PurchaseCartListResult;
+import com.jbh360.trade.vo.PurchaseCartParams;
+import com.jbh360.trade.vo.PurchaseCartParams.PurchaseCartAddValid;
+import com.jbh360.trade.vo.PurchaseCartParams.PurchaseCartDeleteValid;
+import com.jbh360.trade.vo.PurchaseCartParams.PurchaseCartListValid;
+import com.jbh360.trade.vo.PurchaseCartParams.PurchaseCartUpdateValid;
+import com.jbh360.trade.vo.PurchaseCartResult;
+import com.jbh360.trade.vo.PurchaseCartUpdateResponseTag;
+
+@Controller
+@RequestMapping("/purchase/cart")
+public class PurchaseCartController {
+	
+	@Autowired
+	private PurchaseCartServiceImpl purchaseCartServiceImpl;
+	
+	/**
+	 * 采购车列表
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月24日 下午1:46:32 
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "list", method = { RequestMethod.POST,RequestMethod.GET })
+	@ResponseBody
+	public Object list(@Validated({PurchaseCartListValid.class}) PurchaseCartParams params,BindingResult bindingResult) {
+		
+		ErrorResult errorResult = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		PurchaseCartListResponseTag cartListResponseTag = new PurchaseCartListResponseTag();
+		PurchaseCartListResult cartListResult = null;
+		
+		try {
+			// 验证表单
+			if (bindingResult.hasErrors()) {
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				errorResult.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(errorResult);
+				return errorResopneTag;
+			}
+			
+			// 业务逻辑方法
+			cartListResult = this.purchaseCartServiceImpl.findPurchaseCartList(params);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			if(e instanceof ServiceException){
+				errorResult.setErrorCode(((ServiceException) e).getCode());
+			}else{
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			}
+			errorResult.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(errorResult);
+			return errorResopneTag;
+		}
+		
+		cartListResponseTag.setPurchaseCartListResult(cartListResult);
+		return cartListResponseTag;
+	}
+	
+	
+	/**
+	 * 添加采购车
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月24日 下午1:52:32 
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "add", method = { RequestMethod.POST,RequestMethod.GET })
+	@ResponseBody
+	public Object add(@Validated({PurchaseCartAddValid.class}) PurchaseCartParams params,BindingResult bindingResult) {
+		
+		ErrorResult errorResult = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		PurchaseCartAddResponseTag cartAddResponseTag = new PurchaseCartAddResponseTag();
+		
+		PurchaseCartResult chaseCartResult = null;
+		
+		try {
+			// 验证表单
+			if (bindingResult.hasErrors()) {
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				errorResult.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(errorResult);
+				return errorResopneTag;
+			}
+			
+			// 业务逻辑方法
+			chaseCartResult = this.purchaseCartServiceImpl.addPurchaseCart(params);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			if(e instanceof ServiceException){
+				errorResult.setErrorCode(((ServiceException) e).getCode());
+			}else{
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			}			errorResult.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(errorResult);
+			return errorResopneTag;
+		}
+		
+		cartAddResponseTag.setPurchaseCartResult(chaseCartResult);
+		return cartAddResponseTag;
+	}
+	
+	/**
+	 * 更新采购车数量
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月24日 下午1:55:17 
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "update", method = { RequestMethod.POST,RequestMethod.GET })
+	@ResponseBody
+	public Object update(@Validated({PurchaseCartUpdateValid.class}) PurchaseCartParams params,BindingResult bindingResult) {
+		
+		ErrorResult errorResult = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		PurchaseCartUpdateResponseTag cartUpdateResponseTag = new PurchaseCartUpdateResponseTag();
+		SuccessResult successResult = null;
+		
+		
+		try {
+			// 验证表单
+			if (bindingResult.hasErrors()) {
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				errorResult.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(errorResult);
+				return errorResopneTag;
+			}
+			// 业务逻辑方法
+			successResult = this.purchaseCartServiceImpl.updatePurchaseCart(params);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			if(e instanceof ServiceException){
+				errorResult.setErrorCode(((ServiceException) e).getCode());
+			}else{
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			}			errorResult.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(errorResult);
+			return errorResopneTag;
+		}
+		
+		cartUpdateResponseTag.setSuccessResult(successResult);
+		return cartUpdateResponseTag;
+	}
+	
+	/**
+	 * 删除
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年9月24日 下午1:55:17 
+	 * @param params
+	 * @param bindingResult
+	 * @return
+	 */
+	@RequestMapping(value = "delete", method = { RequestMethod.POST,RequestMethod.GET })
+	@ResponseBody
+	public Object delete(@Validated({PurchaseCartDeleteValid.class}) PurchaseCartParams params,BindingResult bindingResult) {
+		
+		ErrorResult errorResult = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		PurchaseCartDeleteResponseTag cartDeleteResponseTag = new PurchaseCartDeleteResponseTag();
+		SuccessResult is_success = null;
+		
+		
+		try {
+			
+			// 验证表单
+			if (bindingResult.hasErrors()) {
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				errorResult.setErrorMessage(ValidateUtil.errorMessage(bindingResult));
+				errorResopneTag.setErrorResult(errorResult);
+				return errorResopneTag;
+			}
+			
+			// 业务逻辑方法
+			is_success = this.purchaseCartServiceImpl.deletePurchaseCart(params);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			if(e instanceof ServiceException){
+				errorResult.setErrorCode(((ServiceException) e).getCode());
+			}else{
+				errorResult.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			}			errorResult.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(errorResult);
+			return errorResopneTag;
+		}
+		
+		cartDeleteResponseTag.setIs_success(is_success);
+		return cartDeleteResponseTag;
+	}
+}

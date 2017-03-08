@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.ShopCartDao">
+	<resultMap type="com.jbh360.trade.vo.ShopCartResult" id="shopCartMap" extends="com.jbh360.trade.mapper.ShopCartMapper.BaseResultMap">
+	
+	</resultMap>
+	
+
+	<select id="findShopCartList" resultMap="shopCartMap" parameterType="com.jbh360.trade.vo.ShopCartParams">
+		select 
+			t.* 
+		from 
+			tdo_shop_cart t 
+		where 
+			t.state = 50 
+		and 
+			t.fk_customer_member_id = #{params.member_id}
+		and 
+			t.fk_shop_store_id = #{params.store_id}
+	</select>
+	
+</mapper>

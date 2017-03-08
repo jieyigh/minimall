@@ -1,0 +1,283 @@
+package com.jbh360.trade.service;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.marketing.entity.StoreCoupon;
+import com.jbh360.marketing.entity.StoreCouponRecord;
+import com.jbh360.marketing.entity.StoreCouponRecordExample;
+import com.jbh360.marketing.mapper.StoreCouponMapper;
+import com.jbh360.marketing.mapper.StoreCouponRecordMapper;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.entity.OrderDetail;
+import com.jbh360.trade.entity.OrderDetailExample;
+import com.jbh360.trade.entity.PreSplitRecord;
+import com.jbh360.trade.entity.PreSplitRecordExample;
+import com.jbh360.trade.mapper.OrderDetailMapper;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.PreSplitRecordMapper;
+import com.jbh360.trade.vo.OrderPreSplitParams;
+
+/**
+ * 订单预分账业务逻辑层
+ * @author : liguosheng 
+ * @CreateDate : 2015年10月29日 下午4:24:36
+ */
+@Service
+public class OrderPreSplitServiceImpl {
+	@Autowired
+	private PreSplitRecordMapper preSplitRecordMapper;
+	
+	@Autowired
+	private OrderMapper orderMapper;
+	
+	@Autowired
+	private OrderDetailMapper orderDetailMapper;
+	
+	@Autowired
+	private StoreCouponMapper storeCouponMapper;
+	
+	@Autowired
+	private StoreCouponRecordMapper storeCouponRecordMapper;
+	
+	/**
+	 * 订单预分账逻辑:
+	 * 			从订单中，将 商户、掌柜的账 分别 存入分账流水中。为日后平台入账提供数据。
+	 *   
+	 *   ===================1：采购单==================
+	 *   邮费 = 运费-运费优惠-邮资卡
+	 *   平台分摊价格 = (订单总价-邮费)*分摊汇率
+	 *   商户获取价格 = 订单总价 - 平台分摊价格
+	 *   ==============================================
+	 *   
+	 *   ===================2：代销单(需要用到结算总价) ==================
+	 *   邮费 = 运费-运费优惠
+	 *   掌柜获取价格 = 订单总价 - 邮费 - 结算总价
+	 *   平台分摊价格 = 结算总价 * 分摊汇率
+	 *   商户获取价格 = 邮费 + 结算总价*(1-分摊汇率)
+	 *   ==============================================
+	 *   
+	 *   ===================3：自营单  ==================
+	 *   掌柜获取价格=订单价格
+	 *   ==============================================
+	 *      
+	 *  保存的属性：订单总价、结算总价、邮费  、平台优惠
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月29日 下午4:29:47 
+	 * @param params
+	 * @param is_success
+	 */
+	public void preSplit(OrderPreSplitParams params, SuccessResult is_success) {
+		
+		Long orderId = params.getOrder_id();
+		
+		
+		Order order = this.orderMapper.selectByPrimaryKey(orderId);
+		
+		if(order != null){
+			
+			Short ordertype = order.getOrderType();
+			
+			Long customerMemberId = null; 	// 用户ID
+			Long buyMemberId = null;		// 买方ID （掌柜）
+			Long buyStoreId = null;			// 买方店铺ID
+			Long sellMemberId = null;		// 买方ID	（商户）
+			Long sellStoreId = null;		// 买方店铺ID
+			
+			customerMemberId = order.getFkCustomeMemberId();
+			buyMemberId = order.getFkBuyeStoreMemberId();
+			buyStoreId = order.getFkBuyerStoreId();
+			sellMemberId = order.getFkSellerMemberId();
+			sellStoreId = order.getFkSellerStoreId();
+			
+			
+			PreSplitRecord preSplitRecord = new PreSplitRecord();
+			
+			// 设置用户ID
+			preSplitRecord.setFkCustomerMemberId(customerMemberId);
+			preSplitRecord.setFkBuyMemberId(buyMemberId);
+			preSplitRecord.setFkBuyStoreId(buyStoreId);
+			preSplitRecord.setFkSellMemberId(sellMemberId);
+			preSplitRecord.setFkSellStoreId(sellStoreId);;
+			
+			// 交易单ID
+			preSplitRecord.setFkTradeId(order.getFkTradeId());
+			// 订单类型
+			preSplitRecord.setOrderType(order.getOrderType());
+			// 操作类型 1:入账，2:退款
+			preSplitRecord.setTranType(params.getTranType());
+			
+			// 订单总额
+			preSplitRecord.setOrderAmount(order.getOrderTotalAmount());
+			// 运费
+			preSplitRecord.setFreightAmount(getFreightAmount(order));
+			// 结算总价
+			preSplitRecord.setSettlementAmount(getSettlementAmount(orderId,ordertype));
+			// 退款金额
+			preSplitRecord.setRefundAmount(params.getRefundAmount());
+			// 设置平台优惠金额
+			setPlatCoupon(preSplitRecord,order);
+			// 创建时间
+			preSplitRecord.setCreateTime(DateUtil.now());
+			
+			this.preSplitRecordMapper.insertSelective(preSplitRecord);
+			
+			is_success.setIs_success(true);
+		}
+		
+		
+		
+	}
+	
+	/**
+	 * 设置平台优惠金额与优惠券类型(目前只考虑创业基金 )
+	 * 
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月7日 上午11:10:36 
+	 * @param preSplitRecord
+	 * @param order
+	 */
+	private void setPlatCoupon(PreSplitRecord preSplitRecord, Order order) {
+		// 优惠券ID
+		Long couponId = order.getFkCouponId();
+		// 平台优惠金额
+		BigDecimal platCouponAmount = BigDecimal.ZERO;
+		// 平台优惠券类型 (1:创业基金)
+		Short platCouponType = null;
+		
+		/**
+		 * 优惠劵种类： 1(代金券)，2(邮资卡)，3(指定产品减少价格)， 4(创业基金)，5(优惠码）
+		 */
+		if(couponId != null && couponId != 0l){
+			StoreCoupon storeCoupon = storeCouponMapper.selectByPrimaryKey(couponId);
+			if(storeCoupon != null && storeCoupon.getCouponType()==4){
+				
+				StoreCouponRecordExample example = new StoreCouponRecordExample();
+					example.createCriteria()
+						.andFkTradeIdEqualTo(order.getFkTradeId())
+						.andFkStoreCouponIdEqualTo(couponId);
+					
+				List<StoreCouponRecord> storeCRocods = this.storeCouponRecordMapper.selectByExample(example);
+				if(!CollectionUtils.isEmpty(storeCRocods)){
+					
+					platCouponAmount = storeCRocods.get(0).getCouponAmount();
+					platCouponType = 1;
+					
+				}
+				
+			}
+		}
+		
+		preSplitRecord.setPlatCouponType(platCouponType);
+		preSplitRecord.setCouponAmount(platCouponAmount);
+	}
+
+	/**
+	 * 校验orderid是否已经在预分账表存在
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月4日 下午8:01:49 
+	 * @param orderId
+	 * @return
+	 */
+	private boolean isExist(Long orderId) {
+		boolean isExist = false;
+		PreSplitRecordExample example = new PreSplitRecordExample();
+		example.createCriteria().andFkOrderIdEqualTo(orderId);
+		List<PreSplitRecord> rs = this.preSplitRecordMapper.selectByExample(example);
+		if(!CollectionUtils.isEmpty(rs)){
+			isExist = true;
+		}
+		return isExist;
+	}
+	
+	/**
+	 * 根据ID删除
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月4日 下午8:35:35 
+	 * @param orderId
+	 */
+	public void deleteByOrderId(Long orderId){
+		PreSplitRecordExample example = new PreSplitRecordExample();
+		example.createCriteria().andFkOrderIdEqualTo(orderId);
+		this.preSplitRecordMapper.deleteByExample(example);
+	}
+
+	/**
+	 * 获取结算总价,代销单才计算
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月4日 下午5:47:52 
+	 * @param orderId
+	 * @param ordertype 订单类型 1：采购单、2：代销单、3：自营单；
+	 * @return
+	 */
+	private BigDecimal getSettlementAmount(Long orderId,Short ordertype) {
+		
+		BigDecimal settlementAmount = BigDecimal.ZERO;
+		
+		if(Constants.OrderType.代销单.getKey().equals(ordertype)){
+			
+			OrderDetailExample example = new OrderDetailExample();
+			example.createCriteria().andFkOrderIdEqualTo(orderId);
+			
+			List<OrderDetail> details = orderDetailMapper.selectByExample(example);
+			
+			if(!CollectionUtils.isEmpty(details)){
+				for(OrderDetail detail :details){
+					settlementAmount.add(detail.getDealUnitPrice()==null?BigDecimal.ZERO:detail.getDealUnitPrice());
+				}
+			}
+		}
+		
+		return settlementAmount;
+	}
+
+	/**
+	 * 获取邮费总价
+	 * (1：采购单)邮费 = 运费-运费优惠-邮资卡
+	 * (2：代销单)邮费 = 运费-运费优惠
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月4日 下午5:48:08 
+	 * @param order
+	 * @return
+	 */
+	private BigDecimal getFreightAmount(Order order) {
+		
+		BigDecimal freightAmount = BigDecimal.ZERO;
+		
+		Short ordertype = order.getOrderType();
+		
+		// 订单运费
+		BigDecimal orderFreightAmount = order.getOrderFreightAmount() == null?BigDecimal.ZERO:order.getOrderFreightAmount();
+		// 运费优惠（只包括改价包邮）
+		BigDecimal freightDiscountAmount = order.getFreightDiscountAmount() == null?BigDecimal.ZERO:order.getFreightDiscountAmount();
+		
+		if(Constants.OrderType.代销单.getKey().equals(ordertype) || Constants.OrderType.自营单.getKey().equals(ordertype)){
+			
+			freightAmount = orderFreightAmount.subtract(freightDiscountAmount) ;
+			
+		}else if(Constants.OrderType.采购单.getKey().equals(ordertype)){
+			
+			Long couponId = order.getFkCouponId();
+			
+			freightAmount = orderFreightAmount.subtract(freightDiscountAmount);
+			
+			if(couponId != null && couponId != 0l){
+				StoreCoupon storeCoupon = storeCouponMapper.selectByPrimaryKey(couponId);
+				if(storeCoupon != null && storeCoupon.getCouponType()==2){//邮资卡
+					BigDecimal subtracttAmount = storeCoupon.getSubtracttAmount() == null?BigDecimal.ZERO:storeCoupon.getSubtracttAmount();
+					freightAmount.subtract(subtracttAmount);
+				}
+			}
+			
+		}
+		return freightAmount;
+	}
+	
+}

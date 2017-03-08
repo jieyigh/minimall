@@ -1,0 +1,110 @@
+package com.jbh360.trade.vo.param;
+
+
+public class OrderReceiverEditParams {
+
+	private Long order_receiver_id;
+	
+	private Short receiver_type;
+	
+	private String receiver_name;
+	
+	private String receiver_province_ccode;
+	
+	private String receiver_city_ccode;
+	
+	private String receiver_area_ccode;
+	
+	private String receiver_street_ccode;
+	
+	private String receiver_address;
+	
+	private String receiver_zip_code;
+	
+	private String receiver_mobile;
+	
+	
+
+	public Long getOrder_receiver_id() {
+		return order_receiver_id;
+	}
+
+	public void setOrder_receiver_id(Long order_receiver_id) {
+		this.order_receiver_id = order_receiver_id;
+	}
+
+	public Short getReceiver_type() {
+		return receiver_type;
+	}
+
+	public void setReceiver_type(Short receiver_type) {
+		this.receiver_type = receiver_type;
+	}
+
+	public String getReceiver_name() {
+		return receiver_name;
+	}
+
+	public void setReceiver_name(String receiver_name) {
+		this.receiver_name = receiver_name;
+	}
+
+	public String getReceiver_province_ccode() {
+		return receiver_province_ccode;
+	}
+
+	public void setReceiver_province_ccode(String receiver_province_ccode) {
+		this.receiver_province_ccode = receiver_province_ccode;
+	}
+
+	public String getReceiver_city_ccode() {
+		return receiver_city_ccode;
+	}
+
+	public void setReceiver_city_ccode(String receiver_city_ccode) {
+		this.receiver_city_ccode = receiver_city_ccode;
+	}
+
+	public String getReceiver_area_ccode() {
+		return receiver_area_ccode;
+	}
+
+	public void setReceiver_area_ccode(String receiver_area_ccode) {
+		this.receiver_area_ccode = receiver_area_ccode;
+	}
+
+	public String getReceiver_street_ccode() {
+		return receiver_street_ccode;
+	}
+
+	public void setReceiver_street_ccode(String receiver_street_ccode) {
+		this.receiver_street_ccode = receiver_street_ccode;
+	}
+
+	public String getReceiver_address() {
+		return receiver_address;
+	}
+
+	public void setReceiver_address(String receiver_address) {
+		this.receiver_address = receiver_address;
+	}
+
+	public String getReceiver_zip_code() {
+		return receiver_zip_code;
+	}
+
+	public void setReceiver_zip_code(String receiver_zip_code) {
+		this.receiver_zip_code = receiver_zip_code;
+	}
+
+	public String getReceiver_mobile() {
+		return receiver_mobile;
+	}
+
+	public void setReceiver_mobile(String receiver_mobile) {
+		this.receiver_mobile = receiver_mobile;
+	}
+	
+	
+	
+}

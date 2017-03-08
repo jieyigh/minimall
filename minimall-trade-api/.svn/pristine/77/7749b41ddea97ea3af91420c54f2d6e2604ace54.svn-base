@@ -1,0 +1,158 @@
+package com.jbh360.trade.service;
+
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.ServiceException;
+import com.jbh360.common.exception.SystemErrorCode.OrderSignErrorCode;
+import com.jbh360.common.utils.Constants.OrderExpressState;
+import com.jbh360.common.utils.Constants.OrderServiceState;
+import com.jbh360.common.utils.Constants.OrderStateCode;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.trade.dao.OrderExpressDao;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.entity.OrderExpress;
+import com.jbh360.trade.entity.OrderExpressExample;
+import com.jbh360.trade.entity.TradeOrderRecord;
+import com.jbh360.trade.mapper.OrderExpressMapper;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.TradeOrderRecordMapper;
+import com.jbh360.trade.vo.OrderSignParams;
+
+/**
+ * 订单包裹签收业务层
+ * @author : liguosheng 
+ * @CreateDate : 2015年10月28日 下午2:08:26
+ */
+@Service
+public class OrderSignServiceImpl {
+	
+	@Autowired
+	private OrderExpressMapper expressMapper; // 物流发货包裹Mapper
+	
+	@Autowired
+	private OrderExpressDao orderExpressDao;  // 物流发货包裹Dao
+	
+	@Autowired
+	private OrderMapper orderMapper;	// 订单
+	
+	@Autowired
+	private TradeOrderRecordMapper tradeOrderRecordMapper;	//  订单操作流水Mapper
+	
+	
+	/**
+	 * 包裹签收
+	 *  1、查询条件包裹id，物流编号
+	 *  2、如果有发生售后，不允许确认收货
+	 *	3、最后一票货需要更新order订单表的last_sign_time最后签收时间
+	 *	4、最后一票货签收完后，需要把order订单状态改为“trade_finished交易完成”，trade交易单的状态改为“trade_finished交易完成”
+	 *	5、同时写操作记录到tdo_trade_order_record表
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月28日 下午2:23:48 
+	 * @param params
+	 * @param is_success
+	 */
+	public void orderSign(OrderSignParams params, SuccessResult is_success) {
+		// 订单包裹对象
+		OrderExpress orderExpress = findExpress(params);
+		// 订单ID
+		Long orderId = orderExpress.getFkOrderId();
+		// 订单对象
+		Order order = this.orderMapper.selectByPrimaryKey(orderId);
+		
+		if(order ==  null){
+			throw new ServiceException("订单不存在",OrderSignErrorCode.ORDER_IS_NOT_EXIST_ERROR);
+		}
+		
+		if(!OrderStateCode.待收货.getKey().equals(order.getStateCode())){
+			throw new ServiceException("订单状态有误，非待收货状态",OrderSignErrorCode.ORDER_NOT_WAIT_BUYER_CONFIRM_GOODS);
+		}
+		
+		if(OrderServiceState.售后中.getKey().equals(order.getServiceState())){
+			throw new ServiceException("订单售后中,不能签收",OrderSignErrorCode.ORDER_SALE_AFTER_NOT_ACCEPT_ERROR);
+		}
+		
+		/**  1.包裹签收   **/
+		orderExpress.setState(OrderExpressState.已签收.getKey());
+		orderExpress.setSignTime(DateUtil.now());					// 牵手时间
+		orderExpress.setLastUpdateTime(DateUtil.now());
+		orderExpress.setLastUpdateUserId(params.getMember_id());
+		this.expressMapper.updateByPrimaryKey(orderExpress);
+		
+		/**  2.如果 订单所有包裹已签收，更新订单order最后签收时间，订单状态为交易完成 **/
+		updateOrderSign(order);
+		
+		/**  3.操作记录到tdo_trade_order_record表 **/
+		TradeOrderRecord record = new TradeOrderRecord();
+		record.setFkOrderId(orderId);
+		record.setFkTradeId(order.getFkTradeId());
+		record.setOpType(Constants.TradeOrderRecordOpType.确认收货.getKey());
+		record.setOpContent("包裹ID"+params.getExpress_id()+"收货");
+		record.setOpTime(DateUtil.now());
+		this.tradeOrderRecordMapper.insertSelective(record);
+		
+	}
+
+	/**
+	 * 如果 订单所有包裹已签收，更新订单order最后签收时间，订单状态为交易完成
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月28日 下午5:02:34 
+	 * @param params
+	 */
+	private void updateOrderSign(Order order) {
+		Long orderId = order.getId();
+		
+		// 订单明细记录数
+		Long orderDetailCount = this.orderExpressDao.getOrderDetailCount(orderId);
+		
+		// 物流发货明细记录数
+		Long expressDetailCount = this.orderExpressDao.getExpressAsignDetailCount(orderId);
+		
+		if(orderDetailCount == expressDetailCount){
+			// 设置交易完成状态
+			order.setStateCode(OrderStateCode.交易完成.getKey());
+			order.setStateName(OrderStateCode.交易完成.getValue());
+			// 最后签收时间
+			order.setLastSignTime(DateUtil.now());
+			order.setLastUpdateTime(DateUtil.now());
+		}
+		
+		this.orderMapper.updateByPrimaryKey(order);
+	}
+
+	/**
+	 * 获取包裹对象
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月28日 下午2:43:45 
+	 * @param params
+	 * @return
+	 */
+	private OrderExpress findExpress(OrderSignParams params) {
+		
+		OrderExpressExample example = new OrderExpressExample();
+		
+		example.createCriteria()
+			.andIdEqualTo(params.getExpress_id())
+			.andExpressBillNoEqualTo(params.getExpress_bill_no());
+		
+		List<OrderExpress> orderExpressList =  expressMapper.selectByExample(example);
+		
+		if(CollectionUtils.isEmpty(orderExpressList)){
+			throw new ServiceException("包裹不存在",OrderSignErrorCode.EXPRESS_IS_NOT_EXIST_ERROR);
+		}
+		
+		return orderExpressList.get(0);
+	}
+
+}
+
+
+
+
+

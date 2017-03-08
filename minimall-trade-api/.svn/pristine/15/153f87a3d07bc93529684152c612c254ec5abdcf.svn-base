@@ -1,0 +1,24 @@
+package com.jbh360.trade.dao;
+
+import com.jbh360.trade.entity.Trade;
+
+/**
+ * 
+ * @Title: TradeDao.java
+ * @Package com.jbh360.trade.dao
+ * @ClassName: TradeDao
+ * @Description: TODO(这里用一句话描述这个类的作用)
+ * @author 揭懿
+ * @email yi.jie@yooyo.com
+ * @date 2015年10月8日 下午8:50:09
+ * @version V3.0
+ */
+public interface TradeDao {
+
+	public Trade selectByPrimaryKeyForUpdate(Long id);
+	
+	public Trade selectByTradeNoForUpdate(String trade_no); 
+	
+	public Trade selectByPayNoForUpdate(String pay_no);
+	
+}

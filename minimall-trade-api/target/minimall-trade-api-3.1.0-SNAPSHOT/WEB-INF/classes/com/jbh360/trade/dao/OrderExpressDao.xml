@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderExpressDao">
+	
+	<!-- List -->
+	<resultMap type="com.jbh360.trade.vo.rs.OrderExpressVo" id="OrderExpressVoListMap" extends="com.jbh360.trade.mapper.OrderExpressMapper.BaseResultMap">
+		
+	</resultMap>
+	
+	<select id="getOrderExpressVoLists" resultMap="OrderExpressVoListMap" parameterType="com.jbh360.trade.vo.param.OrderExpressParams">
+		SELECT * FROM tdo_order_express a
+		
+		<trim prefix="WHERE" prefixOverrides="AND|OR">
+		
+			<if test="params.fk_trade_id != null and params.fk_trade_id != ''">
+	  		  and a.fk_trade_id = #{params.fk_trade_id}
+			</if>
+			
+			<if test="params.fk_order_id != null and params.fk_order_id != ''">
+	  		  and a.fk_order_id = #{params.fk_order_id}
+			</if>
+			
+			<if test="params.name != null and params.name != ''">
+	  		  and a.name like '%${params.name}%'
+			</if>
+				
+		</trim>
+		
+		ORDER BY a.create_time DESC
+	</select>
+	
+	
+	<select id="countOrderExpressVoLists" resultType="java.lang.Long" parameterType="com.jbh360.trade.vo.param.OrderExpressParams">
+		SELECT count(a.id) FROM tdo_order_express a
+		
+		<trim prefix="WHERE" prefixOverrides="AND|OR">
+		
+			<if test="params.fk_trade_id != null and params.fk_trade_id != ''">
+	  		  and a.fk_trade_id = #{params.fk_trade_id}
+			</if>
+			
+			<if test="params.fk_order_id != null and params.fk_order_id != ''">
+	  		  and a.fk_order_id = #{params.fk_order_id}
+			</if>
+			
+			<if test="params.name != null and params.name != ''">
+	  		  and a.name like '%${params.name}%'
+			</if>
+				
+		</trim>
+	</select>
+    
+    
+</mapper>

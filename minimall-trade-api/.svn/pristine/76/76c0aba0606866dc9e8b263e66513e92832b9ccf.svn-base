@@ -1,0 +1,306 @@
+package com.jbh360.trade.vo; 
+
+import java.io.Serializable;
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+
+import org.hibernate.validator.constraints.Length;
+import org.hibernate.validator.constraints.NotEmpty;
+import org.hibernate.validator.constraints.Range;
+
+import com.jbh360.trade.validator.Money;
+
+public class ShopCartParams implements Serializable{ 
+	
+	public static interface ShopCartListParams{};
+	
+	public static interface ShopCartAddParams{};
+	
+	public static interface ShopCartDeleteParams{};
+	
+	public static interface ShopCartUpdateParams{};
+         
+  	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -7804508340769896627L;
+	
+	private Long current_user_id ;
+	
+	
+	private Long id;
+	
+	@NotNull(groups={ShopCartListParams.class,ShopCartAddParams.class,ShopCartDeleteParams.class,ShopCartUpdateParams.class})
+	private Long member_id;
+	
+	private Long customer_member_id;
+	
+	private Long buye_store_member_id;
+	
+	
+	@Length(max=11,groups = {ShopCartAddParams.class})
+  	@Pattern(regexp="^1[3-9][0-9]{9}$",groups = {ShopCartAddParams.class})  
+	private String customer_member_mobile;
+	
+	@NotNull(groups={ShopCartListParams.class,ShopCartAddParams.class})
+	private Long store_id;
+	
+	private Long store_goods_id;
+	
+	private Long store_goods_sku_id;
+	
+	private Long product_id;
+	
+	private Long product_sku_id;
+
+	private String product_barcode; // 产品barcode
+	
+	private String version_no;		// 版本号
+	
+	
+	//@NotNull(groups = {ShopCartAddParams.class})
+	private String sku_properties_name;
+	
+	@NotNull(groups = {ShopCartAddParams.class,ShopCartUpdateParams.class})
+	@Range(min=1,max=9999,groups={ShopCartAddParams.class,ShopCartUpdateParams.class})
+	private Integer buy_count;
+	
+	@NotEmpty(groups = {ShopCartAddParams.class})
+	@Money(groups = {ShopCartAddParams.class})
+	private String product_unit_price;
+	
+	@NotNull(groups = {ShopCartUpdateParams.class})
+	private Long shop_cart_id;	// 采购车某条记录的ID
+	
+	private String[] shop_cart_ids;
+	
+	private Integer update_count;
+	
+	private Long promotion_id; // 店铺促销id（私密折扣）
+	
+	private Integer page_no;
+	
+	private Integer page_size;
+	
+
+	public Long getCurrent_user_id() {
+		return current_user_id;
+	}
+
+
+	public void setCurrent_user_id(Long current_user_id) {
+		this.current_user_id = current_user_id;
+	}
+
+
+	public Long getId() {
+		return id;
+	}
+
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+
+
+	public String getCustomer_member_mobile() {
+		return customer_member_mobile;
+	}
+
+
+	public void setCustomer_member_mobile(String customer_member_mobile) {
+		this.customer_member_mobile = customer_member_mobile;
+	}
+
+
+	public Long getStore_id() {
+		return store_id;
+	}
+
+
+	public void setStore_id(Long store_id) {
+		this.store_id = store_id;
+	}
+
+
+	public Long getStore_goods_id() {
+		return store_goods_id;
+	}
+
+
+	public void setStore_goods_id(Long store_goods_id) {
+		this.store_goods_id = store_goods_id;
+	}
+
+
+	public Long getProduct_sku_id() {
+		return product_sku_id;
+	}
+
+
+	public void setProduct_sku_id(Long product_sku_id) {
+		this.product_sku_id = product_sku_id;
+	}
+
+
+	public String getSku_properties_name() {
+		return sku_properties_name;
+	}
+
+
+	public void setSku_properties_name(String sku_properties_name) {
+		this.sku_properties_name = sku_properties_name;
+	}
+
+
+	public Integer getBuy_count() {
+		return buy_count;
+	}
+
+
+	public void setBuy_count(Integer buy_count) {
+		this.buy_count = buy_count;
+	}
+
+
+	public String getProduct_unit_price() {
+		return product_unit_price;
+	}
+
+
+	public void setProduct_unit_price(String product_unit_price) {
+		this.product_unit_price = product_unit_price;
+	}
+
+
+	public Long getShop_cart_id() {
+		return shop_cart_id;
+	}
+
+
+	public void setShop_cart_id(Long shop_cart_id) {
+		this.shop_cart_id = shop_cart_id;
+	}
+
+
+	public Integer getUpdate_count() {
+		return update_count;
+	}
+
+
+	public void setUpdate_count(Integer update_count) {
+		this.update_count = update_count;
+	}
+
+
+	public Integer getPage_no() {
+		return page_no;
+	}
+
+
+	public void setPage_no(Integer page_no) {
+		this.page_no = page_no;
+	}
+
+
+	public Integer getPage_size() {
+		return page_size;
+	}
+
+
+	public void setPage_size(Integer page_size) {
+		this.page_size = page_size;
+	}
+
+
+	public Long getStore_goods_sku_id() {
+		return store_goods_sku_id;
+	}
+
+
+	public void setStore_goods_sku_id(Long store_goods_sku_id) {
+		this.store_goods_sku_id = store_goods_sku_id;
+	}
+
+
+	public String[] getShop_cart_ids() {
+		return shop_cart_ids;
+	}
+
+
+	public void setShop_cart_ids(String[] shop_cart_ids) {
+		this.shop_cart_ids = shop_cart_ids;
+	}
+
+
+	public Long getPromotion_id() {
+		return promotion_id;
+	}
+
+
+	public void setPromotion_id(Long promotion_id) {
+		this.promotion_id = promotion_id;
+	}
+
+
+	public Long getCustomer_member_id() {
+		return customer_member_id;
+	}
+
+
+	public void setCustomer_member_id(Long customer_member_id) {
+		this.customer_member_id = customer_member_id;
+	}
+
+
+	public Long getBuye_store_member_id() {
+		return buye_store_member_id;
+	}
+
+
+	public void setBuye_store_member_id(Long buye_store_member_id) {
+		this.buye_store_member_id = buye_store_member_id;
+	}
+
+
+	public Long getProduct_id() {
+		return product_id;
+	}
+
+
+	public void setProduct_id(Long product_id) {
+		this.product_id = product_id;
+	}
+
+
+	public String getProduct_barcode() {
+		return product_barcode;
+	}
+
+
+	public void setProduct_barcode(String product_barcode) {
+		this.product_barcode = product_barcode;
+	}
+
+
+	public String getVersion_no() {
+		return version_no;
+	}
+
+
+	public void setVersion_no(String version_no) {
+		this.version_no = version_no;
+	}
+
+
+	public Long getMember_id() {
+		return member_id;
+	}
+
+
+	public void setMember_id(Long member_id) {
+		this.member_id = member_id;
+	}
+}  

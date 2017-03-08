@@ -1,0 +1,1378 @@
+package com.jbh360.trade.service.impl;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
+import com.fasterxml.jackson.databind.ser.std.DateSerializer;
+import com.jbh360.api.sdk.ApiInnerClient;
+import com.jbh360.api.sdk.marketing.entity.MemberGameResult;
+import com.jbh360.api.sdk.marketing.request.MinimallProductGameMemberCheckRequest;
+import com.jbh360.api.sdk.marketing.response.MinimallProductGameMemberCheckResponse;
+import com.jbh360.common.exception.ServiceException;
+import com.jbh360.common.exception.SystemErrorCode.TradeAddErrorCode;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.Constants.OrderType;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.common.utils.NoUtil;
+import com.jbh360.common.utils.SEQGenerate;
+import com.jbh360.common.utils.SessionUtils;
+import com.jbh360.goods.entity.Product;
+import com.jbh360.goods.entity.ProductSku;
+import com.jbh360.goods.entity.ProductSkuExample;
+import com.jbh360.goods.entity.StoreGoodsSku;
+import com.jbh360.goods.entity.StoreGoodsSkuExample;
+import com.jbh360.goods.mapper.ProductMapper;
+import com.jbh360.goods.mapper.ProductSkuMapper;
+import com.jbh360.goods.mapper.StoreGoodsSkuMapper;
+import com.jbh360.marketing.entity.GdsProductGameWithBLOBs;
+import com.jbh360.marketing.entity.StoreCoupon;
+import com.jbh360.marketing.entity.StoreCouponRecord;
+import com.jbh360.marketing.entity.StorePromotion;
+import com.jbh360.marketing.mapper.GdsProductGameMapper;
+import com.jbh360.marketing.mapper.StoreCouponMapper;
+import com.jbh360.marketing.mapper.StoreCouponRecordMapper;
+import com.jbh360.marketing.mapper.StorePromotionMapper;
+import com.jbh360.member.oms.entity.Member;
+import com.jbh360.member.oms.entity.SupplierWarehouse;
+import com.jbh360.member.oms.mapper.MemberMapper;
+import com.jbh360.member.oms.mapper.SupplierWarehouseMapper;
+import com.jbh360.store.entity.StoreInfo;
+import com.jbh360.store.mapper.StoreInfoMapper;
+import com.jbh360.trade.dao.TradeDao;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.entity.OrderDetail;
+import com.jbh360.trade.entity.OrderReceiver;
+import com.jbh360.trade.entity.PurchaseCart;
+import com.jbh360.trade.entity.ShopCart;
+import com.jbh360.trade.entity.Trade;
+import com.jbh360.trade.mapper.OrderDetailMapper;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.OrderReceiverMapper;
+import com.jbh360.trade.mapper.PurchaseCartMapper;
+import com.jbh360.trade.mapper.ShopCartMapper;
+import com.jbh360.trade.mapper.TradeMapper;
+import com.jbh360.trade.service.TradeService;
+import com.jbh360.trade.vo.param.AppOrderParam;
+import com.jbh360.trade.vo.param.AppTradeParam;
+import com.jbh360.trade.vo.param.WapOrderParam;
+import com.jbh360.trade.vo.param.WapTradeParam;
+import com.jbh360.trade.vo.rs.TradeResult;
+import com.soft.redis.client.template.ValueRedisTemplate;
+import com.yooyo.util.RestUtil;
+
+/**  
+* @Title: TradeServiceImpl.java
+* @Package com.jbh360.trade.service.impl
+* @Description: TODO(用一句话描述该文件做什么)
+* @author joe 
+* @email aboutou@126.com 
+* @date 2015年10月3日 下午3:06:14
+* @version V3.0  
+*/
+@Service
+public class TradeServiceImpl implements TradeService{
+	
+	@Autowired
+	private GdsProductGameMapper gdsProductGameMapper; 
+	@Autowired
+	private MemberMapper memberMapper; 
+	@Autowired
+	private ApiInnerClient apiInnerClient;
+	@Autowired
+	private ProductSkuMapper productSkuMapper;
+	@Autowired
+	private ProductMapper productMapper;
+	@Autowired
+	private StoreGoodsSkuMapper storeGoodsSkuMapper;
+	@Autowired
+	private StorePromotionMapper storePromotionMapper;
+	@Autowired
+	private StoreCouponMapper storeCouponMapper;
+	@Autowired
+	private TradeDao tradeDao;
+	@Autowired
+	private TradeMapper tradeMapper;
+	@Autowired
+	private OrderMapper orderMapper;
+	@Autowired
+	private OrderDetailMapper orderDetailMapper;
+	@Autowired
+	private OrderReceiverMapper orderReceiverMapper;
+	@Autowired
+	private StoreInfoMapper storeInfoMapper;
+	@Autowired
+	private SupplierWarehouseMapper supplierWarehouseMapper;
+	@Autowired
+	private ValueRedisTemplate valueRedisTemplate;
+	@Autowired
+	private PurchaseCartMapper purchaseCartMapper;
+	@Autowired
+	private ShopCartMapper shopCartMapper;
+	@Autowired
+	private StoreCouponRecordMapper storeCouponRecordMapper;
+	
+	private Logger log = Logger.getLogger(TradeServiceImpl.class);
+	
+	/******
+	 * 
+	 * 
+	 * 
+	 * 订单新增
+	 * （1）判断订单类型
+	 * （2）处理订单商品
+	 * （3）处理优惠
+	 */
+	@Override
+	public TradeResult appAdd(AppTradeParam params){
+		
+		/** 校验用户 **/
+		checkMember(params.getMember_id());
+		
+		/** 交易单对象 **/		
+		Trade trade = new Trade();
+		trade.setId(SEQGenerate.getId());
+		
+		/** 收货物流对象 **/
+		OrderReceiver orderReceiver = putOrderReceiver(params,trade);
+		
+		/** 参数对象 **/
+		List<AppOrderParam> orderParams = params.getOrders();
+		
+		// 标题，用于保存订单产品名称，如果一个以上，直接在第一个产品名称后面加等等就好。
+		String tradeTitle = null;
+		
+		BigDecimal tradeAppDiscountTotalAmount = BigDecimal.ZERO;	// 平台优惠
+		BigDecimal tradeFreightTotalAmount = BigDecimal.ZERO;  		// 邮费
+		BigDecimal tradeOrderDiscountTotalAmount=  BigDecimal.ZERO;	// 订单优惠总金额
+		BigDecimal tradeTotalAmount = BigDecimal.ZERO; 				// 订单实付总金额
+		BigDecimal tradeProductTotalAmount = BigDecimal.ZERO; 		// 产品总 金额
+		
+		List<Order> orders = new ArrayList<Order>();	//订单信息
+		
+		List<OrderDetail> orderDetails = new ArrayList<OrderDetail>();	//订单明细信息
+		
+//		OrderType orderType = OrderType.getValue(params.getOrder_type());
+		
+		
+		if(orderParams != null && !orderParams.isEmpty()){
+			for (AppOrderParam orderParam : orderParams) {
+				Order order =new Order();//订单信息
+				orders.add(order);
+				order.setId(SEQGenerate.getId());
+				order.setFkTradeId(trade.getId());
+				
+				List<com.jbh360.trade.vo.param.AppProduct> productParams = orderParam.getProducts();
+				
+				// 商品实付金额汇总
+				BigDecimal orderGoodsPayTotalAmont = BigDecimal.ZERO;
+				// 商品优惠金额汇总
+				BigDecimal orderGoodsDiscountTotalAmount = BigDecimal.ZERO;
+				
+				/********************************************************************************************************/
+				/**************************************订单明细计算开始***************************************************/
+				/********************************************************************************************************/
+				// 优游劵ID 
+				Long order_coupon_id = orderParam.getOrder_coupon_id();
+				String product_coupon_ids = orderParam.getProduct_coupon_ids();
+				BigDecimal order_coupon_product_total_amount = BigDecimal.ZERO;  // 优惠 产品实付价汇总
+				// 活动ID
+				Long order_game_id = orderParam.getOrder_game_id();
+				String product_game_ids = orderParam.getProduct_game_ids();
+				BigDecimal order_game_product_total_amoun = BigDecimal.ZERO;	 // 活动产品实付价汇总		 
+				
+				if(productParams != null && !productParams.isEmpty()){
+					for (com.jbh360.trade.vo.param.AppProduct productParam : productParams) {
+						
+						// 校验产品对象
+						Product minimallProduct = checkProduct(productParam.getProduct_id());
+						
+						// 校验产品sku对象
+						ProductSku productSku = checkProductSku(productParam.getProduct_id(),productParam.getProduct_sku_barcode());
+						
+						// 设置订单明细
+						OrderDetail orderDetail = putOrderDetail(trade,order,productParam, minimallProduct, productSku);
+						
+						// 存入订单明细集合
+						orderDetails.add(orderDetail);
+						
+						// 校验更新库存
+						checkProductSkuStock(productParam.getProduct_id(), productSku.getId(), productParam.getBuy_count());
+
+						/** 设置阶梯定价 **/
+						setLadderPrice(productParam, productSku, orderDetail);
+						
+						/**
+						 * 促销活动
+						 */
+						if(productParam.getProduct_game_id() != null && productParam.getProduct_game_id() != 0l){
+							
+							// 校验，Product_game_id 不能与 (order_game_id 或  coupon_id) 同时存在 
+							if(order_coupon_id != null || order_game_id != null){
+								throw new ServiceException(TradeAddErrorCode.GAME_CAN_NOT_WITH_DISCOUNT_ERROR,"促销产品不能同时拥有其它优惠信息");
+							}
+							
+							/**
+							 * 循环调用查询促销活动，时间问题
+							 * 2015年10月3日17:46:28 joe
+							 */
+							MinimallProductGameMemberCheckRequest minimallProductGameMemberCheckRequest = new MinimallProductGameMemberCheckRequest(params.getMember_id(), productParam.getProduct_game_id(), productParam.getProduct_id(), productParam.getProduct_sku_barcode(), productParam.getBuy_count());
+							MinimallProductGameMemberCheckResponse response = apiInnerClient.execute(minimallProductGameMemberCheckRequest);
+							List<MemberGameResult> gs = response.getMemberGameResults();
+							
+							if(response.isSuccess()){
+								if(!CollectionUtils.isEmpty(gs)){
+									MemberGameResult g = gs.get(0);
+									if(g.getIs_can_buy()){
+										orderDetail.setDealUnitPrice(g.getProduct_game_price());
+										orderDetail.setFkGameId(productParam.getProduct_game_id());
+									}else{
+										throw new ServiceException(TradeAddErrorCode.GAME_COULD_NOT_BE_USED_ERROR,"活动id为"+productParam.getProduct_game_id()+"的活动无法使用；"+g.getCan_not_buy_reason());
+									}
+								}else{
+									throw new ServiceException("系统有误");
+								}
+								
+							}else if(StringUtils.isNotBlank(response.getErrorCode())){
+								throw new ServiceException(response.getErrorMessage(),response.getErrorCode());
+							}
+						}
+						
+						// 实付金额 = 成交单价 * 数量
+						orderDetail.setPaymentAmount(orderDetail.getDealUnitPrice().multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+						// 产品优惠金额  = (单价-成交单价)*数量
+						orderDetail.setGoodsDiscountAmount(orderDetail.getSaleUnitPrice().subtract(orderDetail.getDealUnitPrice()).multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+						orderGoodsDiscountTotalAmount = orderGoodsDiscountTotalAmount.add(orderDetail.getGoodsDiscountAmount());
+						
+						/***
+						 * 算活动产品实付价汇总
+						 */
+						if(order_game_id != null && order_game_id != 0l){
+							if(StringUtils.isNotBlank(product_game_ids)){
+								String[] ids=product_game_ids.split(",");
+								if(ids != null){
+									for (int i = 0; i < ids.length; i++) {
+										if(ids[i].equals(productParam.getProduct_id()+"")){
+											order_game_product_total_amoun = order_game_product_total_amoun.add(orderDetail.getPaymentAmount());
+											orderDetail.setFkGameId(order_game_id);
+										}
+									}
+								}
+							}else{
+								/** product_game_ids为空的时候店铺所有商品通用*/
+								order_game_product_total_amoun = order_game_product_total_amoun.add(orderDetail.getPaymentAmount());
+								orderDetail.setFkGameId(order_game_id);
+							}
+						}
+						
+						/***
+						 * 算优惠产品实付汇总
+						 */
+						if(order_coupon_id != null && order_coupon_id != 0l){
+							
+							if(StringUtils.isNotBlank(product_coupon_ids)){
+								String[] ids=product_coupon_ids.split(",");
+								if(ids != null){
+									for (int i = 0; i < ids.length; i++) {
+										if(ids[i].equals(productParam.getProduct_id()+"")){
+											order_coupon_product_total_amount = order_coupon_product_total_amount.add(orderDetail.getPaymentAmount());
+											orderDetail.setFkCouponId(order_coupon_id);
+										}
+									}
+								}
+							}else{
+								/** product_coupon_ids为空的时候店铺所有商品通用*/
+								order_coupon_product_total_amount = order_coupon_product_total_amount.add(orderDetail.getPaymentAmount());
+								orderDetail.setFkCouponId(order_coupon_id);
+							}
+						}
+							
+						orderGoodsPayTotalAmont = orderGoodsPayTotalAmont.add(orderDetail.getPaymentAmount());
+					}
+				}
+				/************************************订单明细计算结束********************************************************************/
+				/**********************************************************************************************************************/
+				/**********************************************************************************************************************/
+				/**********************************************************************************************************************/
+				
+				// 传入的店铺优惠金额
+				BigDecimal order_coupon_discount_amount = orderParam.getOrder_coupon_discount_amount();
+				if(order_coupon_discount_amount == null) order_coupon_discount_amount=BigDecimal.ZERO;
+				
+				// 传入的满减活动金额
+				BigDecimal order_game_discount_amount = orderParam.getOrder_game_discount_amount();
+				if(order_game_discount_amount == null) order_game_discount_amount = BigDecimal.ZERO;
+				
+				/** 优惠券检测 **/
+				checkCoupon(order_coupon_id, product_coupon_ids,
+						order_coupon_discount_amount,
+						order_coupon_product_total_amount, order.getId(),trade.getId(),
+						orderParam);
+				
+				/** 活动校验 **/
+				checkGame(order_game_id, product_game_ids,order_game_discount_amount,order_game_product_total_amoun,order.getId());
+				
+				order.setFkCouponId(order_coupon_id);
+				order.setFkGameId(order_game_id);
+				
+				// 运费优惠（包括邮资卡）
+				order.setFreightDiscountAmount(BigDecimal.ZERO);
+				
+				// 改价优惠
+				order.setChangePriceAmount(BigDecimal.ZERO);
+				
+				// 邮费
+				order.setOrderFreightAmount(orderParam.getOrder_freight_amount()==null?BigDecimal.ZERO:orderParam.getOrder_freight_amount());
+				
+				// .....
+				order.setOrderTotalPayLossAmount(BigDecimal.ZERO);
+				
+				// 商品总额  = 商品实际金额汇总+商品优惠金额汇总
+				order.setOrderGoodsTotalAmount(orderGoodsPayTotalAmont.add(orderGoodsDiscountTotalAmount));
+				
+				// 商品优惠金额汇总
+				order.setGoodsDiscountAmount(orderGoodsDiscountTotalAmount);
+				
+				// 订单优惠金额  = 店铺优惠+满减活动
+				order.setOrderDiscountAmount(order_coupon_discount_amount.add(order_game_discount_amount));
+				
+				// 订单优惠总额  = 订单优惠金额 + 商品优惠 + 改价优惠 + 运费优惠
+				order.setOrderDiscountTotalAmount(getOrderDiscountTotalAmount(order));
+				
+				// 订单总价  === 商品总额 + 邮费金额  - 优惠总额
+				order.setOrderTotalAmount(getOrderTotalAmount(order));
+				
+				// 是否七天退货
+				order.setIsSupportSellService(getSupportReturnType(orderParam.getSeller_store_id()));
+				
+				order.setBuyerRemark(orderParam.getBuyer_remark());
+				order.setIsFreeze((short)0);
+				order.setCreateTime(new Date());
+				order.setCreateUserId(SessionUtils.getMember_id());
+				order.setDealType((short)2);//及时到账
+				StoreInfo  buerStoreInfo = storeInfoMapper.selectByPrimaryKey(orderParam.getBuyer_store_id());
+				if(buerStoreInfo != null && buerStoreInfo.getId() != 0l && buerStoreInfo.getIsGuarantee() != null){
+					if(buerStoreInfo.getIsGuarantee().equals((short)1)){
+						order.setDealType((short)1);//是担保
+					}
+				}
+				order.setOrderType(OrderType.采购单.getKey());
+				order.setEndTime(new Timestamp(System.currentTimeMillis()+7*24*60*60*1000));
+				order.setExtendSingTime(null);		
+				order.setFkBuyerStoreId(orderParam.getBuyer_store_id());
+				order.setFkBuyeStoreMemberId(orderParam.getBuye_store_member_id());//采购单
+				// order.setFkCustomeMemberId(params.getMember_id());
+				// order.setFkPromotionId(orderParam.getPromotion_id());
+				order.setFkOrderReceiverId(orderReceiver.getId());
+				order.setFkSellerMemberId(orderParam.getSeller_member_id());
+				order.setFkSellerStoreId(orderParam.getSeller_store_id());
+				order.setFkSellerSupplierId(orderParam.getSupplier_id());
+				order.setStateCode("wait_buyer_pay");
+				order.setStateName("待付款");
+				order.setCreateUserId(SessionUtils.getMember_id());
+				order.setCreateTime(new Date());
+				order.setOrderNo(NoUtil.getOrderNo("minimall-order-no"));
+				
+				tradeProductTotalAmount = tradeProductTotalAmount.add(order.getOrderGoodsTotalAmount());
+				
+				tradeFreightTotalAmount = tradeFreightTotalAmount.add(order.getOrderFreightAmount());
+				
+				tradeOrderDiscountTotalAmount = tradeOrderDiscountTotalAmount.add(order.getOrderDiscountTotalAmount());
+				
+				tradeTotalAmount = tradeTotalAmount.add(order.getOrderTotalAmount());
+			}
+			
+		}
+		trade.setCreateTime(new Date());
+		trade.setCreateUserId(SessionUtils.getMember_id());
+		trade.setTradeNo(NoUtil.getOrderNo("minimall-trade-no"));
+		trade.setPayNo(NoUtil.getOrderNo("minimall-pay-no"));
+		trade.setStateCode("wait_buyer_pay");
+		trade.setStateName("待付款");
+		trade.setPayState((short)0);
+		
+		//trade.setTradeDiscountTotalAmount(tradeTotalAmount);//实付金额
+		
+		// 平台优惠
+		trade.setTradeDiscountTotalAmount(tradeAppDiscountTotalAmount);   
+		
+		// 订单的优惠总金额
+		trade.setOrderDiscountTotalAmount(tradeOrderDiscountTotalAmount); 
+		
+		// 产品总额
+		trade.setGoodsTotalAmount(tradeProductTotalAmount); 
+		
+		// 优惠总金额          ====  商品优惠总金额+订单优惠总金额+订单的改价优惠
+		trade.setDiscountTotalAmount(tradeOrderDiscountTotalAmount.add(trade.getTradeDiscountTotalAmount())); 
+		
+		// 邮费
+		trade.setFreightTotalAmount(tradeFreightTotalAmount);
+		
+		// 实付总金额=货品总金额-优惠总金额+邮费总金额
+		trade.setTradeShouldAmount(tradeProductTotalAmount.subtract(trade.getDiscountTotalAmount()).add(tradeFreightTotalAmount));
+		//trade.setTradeShouldAmount(tradeTotalAmount);
+		
+		
+		trade.setTradeTotalPayLossAmount(BigDecimal.ZERO);
+		trade.setFkMemberId(params.getMember_id());
+		trade.setRecycleState((short)1);
+		
+		if(!CollectionUtils.isEmpty(orderDetails)){
+			tradeTitle = orderDetails.get(0).getProductName();
+			if(orderDetails.size() > 1){
+				tradeTitle +=" 等等";
+			}
+			trade.setTitle(tradeTitle);
+		}	
+		/**
+		 * 金额验证
+		 */
+		if(trade.getTradeShouldAmount().compareTo(params.getTrade_total_amount()) != 0){
+			throw new ServiceException("实付总金额不符,后台计算为："+trade.getTradeShouldAmount(),TradeAddErrorCode.PAP_AMOUONT_INCONSISTENT_ERROR);
+		}
+		
+		/** 数据录入 **/
+		if(tradeMapper.insertSelective(trade)>0){
+			for (Order order : orders) {
+				orderMapper.insertSelective(order);
+			}
+			for (OrderDetail orderDetail : orderDetails) {
+				orderDetailMapper.insertSelective(orderDetail);
+			}
+			orderReceiverMapper.insertSelective(orderReceiver);
+			
+			/** 删除采购车 **/
+			deletePurchaCard(orderParams);
+		}
+		
+		return new TradeResult(trade.getId(), trade.getTradeNo());
+	}
+
+
+	/**
+	 * 	获取order订单总额 = 商品总额 + 邮费金额  - 优惠总额
+	 */
+	private BigDecimal getOrderTotalAmount(Order order) {
+		BigDecimal orderGoodsTotalAmount = order.getOrderGoodsTotalAmount()==null?BigDecimal.ZERO:order.getOrderGoodsTotalAmount();
+		BigDecimal orderFreightAmount = order.getOrderFreightAmount()==null?BigDecimal.ZERO:order.getOrderFreightAmount();
+		BigDecimal orderDiscountTotalAmount = order.getOrderDiscountTotalAmount()==null?BigDecimal.ZERO:order.getOrderDiscountTotalAmount();
+		
+		return orderGoodsTotalAmount.add(orderFreightAmount).subtract(orderDiscountTotalAmount);
+	}
+
+	
+	/**
+	 *   获取order订单优惠总额
+	 *   订单优惠金额 = 满减活动优惠 + 店铺优惠
+	 * 	  订单优惠总额  = 订单优惠金额  + 商品优惠  + 改价优惠 + 运费优惠
+	 */
+	private BigDecimal getOrderDiscountTotalAmount(Order order) {
+		// 订单优惠
+		BigDecimal orderDiscountAmount = order.getOrderDiscountAmount()==null?BigDecimal.ZERO:order.getOrderDiscountAmount();
+		// 改价优惠
+		BigDecimal changePriceAmount = order.getChangePriceAmount()==null?BigDecimal.ZERO:order.getChangePriceAmount();
+		// 运费优惠
+		BigDecimal freightDiscountAmount = order.getFreightDiscountAmount()==null?BigDecimal.ZERO:order.getFreightDiscountAmount();
+		// 产品优惠
+		BigDecimal goodsDiscountAmount = order.getGoodsDiscountAmount()==null?BigDecimal.ZERO:order.getGoodsDiscountAmount();
+		
+		return orderDiscountAmount.add(changePriceAmount.add(freightDiscountAmount).add(goodsDiscountAmount));
+	}
+
+	/**
+	 * 设置阶梯定价(针对采购单才有)
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月14日 下午2:28:29 
+	 * @param productParam 获取购买数量
+	 * @param productSku   获取产品单价
+	 * @param orderDetail  
+	 */
+	private void setLadderPrice(com.jbh360.trade.vo.param.AppProduct productParam,
+			ProductSku productSku, OrderDetail orderDetail) {
+		Map<String, Object> map=new HashMap<String, Object>();
+		map.put("productId", productSku.getFkProductId());
+		map.put("buycount", productParam.getBuy_count());
+		Map<String, Object> resultMap = tradeDao.getPrice(map);
+		
+		orderDetail.setSaleUnitPrice(productSku.getSettlementPrice());
+		if(resultMap != null && !resultMap.isEmpty() && resultMap.get("price")!=null){
+			orderDetail.setDealUnitPrice(new BigDecimal(resultMap.get("price")+""));
+		}else{
+			orderDetail.setDealUnitPrice(productSku.getSettlementPrice());
+		}
+	}
+
+	/**
+	 * 设置订单明细信息
+	 * @author : liguosheng 
+	 * @param trade 
+	 * @param order
+	 * @param product 传参param对象
+	 * @param minimallProduct
+	 * @param productSku
+	 * @return
+	 */
+	private OrderDetail putOrderDetail(Trade trade, Order order,
+			com.jbh360.trade.vo.param.AppProduct product, Product minimallProduct,
+			ProductSku productSku) {
+		OrderDetail orderDetail = new OrderDetail();
+		orderDetail.setId(SEQGenerate.getId());
+		orderDetail.setFkTradeId(trade.getId());
+		orderDetail.setFkOrderId(order.getId());
+		orderDetail.setFkProductId(product.getProduct_id());
+		orderDetail.setSkuBarcode(product.getProduct_sku_barcode());
+		orderDetail.setFkStoreGoodsId(product.getStore_goods_id());
+		orderDetail.setBuyCount(product.getBuy_count());
+		orderDetail.setCreateTime(new Date());
+		orderDetail.setExpressState((short)0);
+		orderDetail.setServiceState(null);
+		orderDetail.setProductName(minimallProduct.getName());
+		orderDetail.setProductLogoRsurl(minimallProduct.getLogoRsurl());
+		orderDetail.setFkProductHistoryId(productSku.getCurrentHistoryId());
+		orderDetail.setFkProductHistorySkuId(productSku.getId());
+		orderDetail.setProductVersionNo(productSku.getCurrentHistoryVersion());
+		orderDetail.setOuterSkuCode(productSku.getOuterSkuId());
+		orderDetail.setSaleUnitPrice(productSku.getSettlementPrice());	//代销单：店铺销售单价；自营单:店铺销售单价(取自产品表的结算价)
+		return orderDetail;
+	}
+
+	
+	/**
+	 * 校验商品sku
+	 */
+	private ProductSku checkProductSku(Long productId,String productSkuBarcode){
+		ProductSkuExample example = new ProductSkuExample();
+		example.createCriteria().andFkProductIdEqualTo(productId).andProductSkuBarcodeEqualTo(productSkuBarcode);
+		List<ProductSku> productSkus = productSkuMapper.selectByExample(example);
+		if(productSkus == null || productSkus.isEmpty()){
+			throw new  ServiceException(TradeAddErrorCode.PRODUCT_SKU_NOT_EXIST_ERROR,"product_sku_barcode为"+productSkuBarcode+"的商品不存在");
+		}
+		
+		ProductSku productSku = productSkus.get(0);
+		return productSku;
+	}
+
+	/**
+	 * 校验商品
+	 */
+	private Product checkProduct(Long productId){
+		Product minimallProduct = productMapper.selectByPrimaryKey(productId);
+		if(minimallProduct == null || minimallProduct.getId() == null || minimallProduct.getId() == 0l){
+			throw new ServiceException(TradeAddErrorCode.PRODUCT_NOT_EXIST_ERROR,"id为"+productId+"的商品不存在");
+		}
+		return minimallProduct;
+	}
+
+
+	/**
+	 * 校验用户
+	 */
+	private void checkMember(Long member_id) {
+		Member member = memberMapper.selectByPrimaryKey(member_id);
+		if(member == null || member.getId()==null || member.getId()==0l){
+			throw new ServiceException(TradeAddErrorCode.MEMBER_NOT_EXIST_ERROR,"该用户不存在");
+		}
+	}
+
+
+	/**
+	 * 收货物流对象赋值
+	 * @CreateDate : 2015年10月14日 下午1:09:34 
+	 * @param params
+	 * @param trade
+	 * @return
+	 */
+	private OrderReceiver putOrderReceiver(AppTradeParam params, Trade trade) {
+		OrderReceiver orderReceiver = new OrderReceiver();
+		orderReceiver.setId(SEQGenerate.getId());
+		orderReceiver.setCreateUserId(SessionUtils.getMember_id());
+		orderReceiver.setCreateTime(new Date());
+		orderReceiver.setFkTradeId(trade.getId());
+		orderReceiver.setReceiverMobile(params.getReceiver_mobile());
+		orderReceiver.setReceiverName(params.getReceiver_name());
+		orderReceiver.setReceiverPhoneExt(params.getReceiver_mobile());
+		orderReceiver.setReceiverPhoneNumber(params.getReceiver_mobile());
+		orderReceiver.setReceiverZipCode(params.getReceiver_zip_code());
+		orderReceiver.setReceiverAddress(params.getReceiver_address());
+		orderReceiver.setReceiverAreaCcode(params.getReceiver_area_ccode());
+		if(params.getReceiver_area_ccode() != null){
+			orderReceiver.setAddressRegionName(valueRedisTemplate.get("BMREGION-"+params.getReceiver_area_ccode()));
+		}
+		//orderReceiver.setAddressRegionName(params.getReceiver_address());//代码的地址
+		
+		
+		/** 收货方式(0：自提，1：物流快递) **/
+		if(params.getReceiver_type().equals("0")){
+			if(params.getWarehouse_id() != null && params.getWarehouse_id() != 0l){
+				SupplierWarehouse supplierWarehouse = supplierWarehouseMapper.selectByPrimaryKey(params.getWarehouse_id());
+				if(supplierWarehouse == null || supplierWarehouse.getId() == null || supplierWarehouse.getId() == 0l || supplierWarehouse.getState() != 50){
+					throw new ServiceException("收货方式为自提的时候没找到该自提点");
+				}
+				orderReceiver.setPickupplaceBusinessTime(supplierWarehouse.getOpeningTime());
+				orderReceiver.setPickupplaceContactName(supplierWarehouse.getTel());
+				orderReceiver.setReceiverAddress(supplierWarehouse.getAddress());
+				orderReceiver.setAddressRegionName(supplierWarehouse.getAreaCcodeName());
+				orderReceiver.setPickupplacePhoneArea(null);
+				orderReceiver.setPickupplaceContactName(supplierWarehouse.getLinkman());
+				orderReceiver.setPickupplacePhoneNumber(supplierWarehouse.getMoblie());
+			}else{
+				throw new ServiceException("收货方式为自提的时候必须选择自提点");
+			}
+			
+		}else if(params.getReceiver_type().equals("1")){
+			
+		}
+		
+		
+		return orderReceiver;
+	}
+
+
+	/**
+	 * 删除采购车
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月13日 下午5:29:31 
+	 * @param orderParams
+	 */
+	private void deletePurchaCard(List<AppOrderParam> orderParams) {
+		if(!CollectionUtils.isEmpty(orderParams)){
+			for(AppOrderParam orderParam : orderParams){
+				Long[] cardIds = orderParam.getCart_ids();
+				if(cardIds != null && cardIds.length > 0){
+					for(Long cardId : cardIds){
+						PurchaseCart record = new PurchaseCart();
+						record.setId(cardId);
+						record.setState(Constants.CommonState.DELETE.getValue());
+						this.purchaseCartMapper.updateByPrimaryKeySelective(record);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * 校验订单满减活动
+	 * @param order_game_id 				活动ID
+	 * @param product_game_ids 				活动产品IDs
+	 * @param discount_amount 	需要校验的活动价格
+	 * @param totalAmount  					产品实付价汇总
+	 * @param order_id						订单ID
+	 * @throws Exception
+	 */
+	private void checkGame(Long order_game_id,String product_game_ids, BigDecimal discount_amount,BigDecimal totalAmount,Long order_id)
+			{
+		GdsProductGameWithBLOBs  productGame = null;
+		if(order_game_id != null && order_game_id != 0l){
+			productGame = gdsProductGameMapper.selectByPrimaryKey(order_game_id);
+			if(productGame==null || productGame.getId()==null || productGame.getId()==0l){
+				throw new ServiceException(TradeAddErrorCode.GAME_NOT_EXIST_ERROR,"当传了促销活动的id时，该促销活动不存在");
+			}
+			if(productGame.getStartTime().after(new Date())){
+				throw new ServiceException(TradeAddErrorCode.GAME_TIME_NOT_BEGIN_ERROR,"该促销活动未开始");
+			}else if(productGame.getEndTime().before(new Date())){
+				throw new ServiceException(TradeAddErrorCode.GAME_TIME_IS_OVER_ERROR,"该促销活动已结束");
+			}else if(productGame.getState()!=50){
+				throw new ServiceException(TradeAddErrorCode.GAME_COULD_NOT_BE_USED_ERROR,"该促销活动不可以使用");
+			}else if(productGame.getActivityState()!=50){
+				throw new ServiceException(TradeAddErrorCode.GAME_COULD_NOT_BE_USED_ERROR,"该促销活动不可以使用");
+			}else if(productGame.getActivityState()!=50){
+				throw new ServiceException(TradeAddErrorCode.GAME_COULD_NOT_BE_USED_ERROR,"该促销活动不可以使用");
+			}
+			
+			// 赠送活动ID
+			Long present_coupon_id = null;
+			
+			//促销活动的满减  等满减活动规则出来(需要校验)
+			if(productGame.getBizType()==4){
+				// 活动规则JSON字符串
+				String regulationJson = productGame.getGameRegulation();
+				
+				if(StringUtils.isEmpty(regulationJson)){
+					throw new ServiceException(TradeAddErrorCode.GAMEREGULATION_IS_NULL_ERROR,"满减活动规则为空");
+				}
+				
+				// 转换后的map对象
+				List<Map<String,Object>> regulaList = toMapsFromJson(regulationJson);
+				
+				if(CollectionUtils.isEmpty(regulaList)){
+					throw new ServiceException(TradeAddErrorCode.GAMEREGULATION_IS_NULL_ERROR,"满减活动规则为空");
+				}
+				
+				/** 根据下标index 获取符合条件满减记录  **/
+				int index = 0;
+				BigDecimal m_indexAmount = BigDecimal.ZERO;
+				
+				for(int i = 0;i<regulaList.size();i++){
+					Map<String,Object> regulaMap = regulaList.get(i);
+					// 满金额
+					BigDecimal m_totalamount = BigDecimal.valueOf(Double.valueOf(regulaMap.get("total_amount").toString()));
+					if(totalAmount.compareTo(m_totalamount) >= 0 && m_totalamount.compareTo(m_indexAmount) >= 0){
+						index = i;
+						m_indexAmount = m_totalamount;
+					}
+				}
+
+				/** 满减校验 **/
+				Map<String,Object> regulaMap = regulaList.get(index);
+				BigDecimal subtractt_amount = BigDecimal.valueOf(Double.valueOf(regulaMap.get("subtractt_amount").toString()));
+				if(subtractt_amount.compareTo(discount_amount) != 0){
+					throw new ServiceException(TradeAddErrorCode.GAME_FULL_CUT_INCONSISTENT_ERROR,"满减金额不符");
+				}
+				present_coupon_id = regulaMap.get("present_coupon_id") == null?null:Long.valueOf(regulaMap.get("present_coupon_id").toString());
+				
+			}else{
+				throw new ServiceException(TradeAddErrorCode.GAME_CAN_NOT_WITH_DISCOUNT_ERROR,"参加了优惠促销活动，不能同时使用优惠券");
+			}
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put("type", "GAME");
+			map.put("discount_amount", discount_amount);
+			map.put("product_ids", product_game_ids);
+			map.put("fk_order_id", order_id);
+			map.put("present_coupon_id",present_coupon_id);
+			map.put("create_time", new Date());
+			tradeDao.insertPreferentialRecord(map);
+		}
+	}
+	
+	/**
+	 * 将json字符串 转换 为 Map集合对象
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月14日 下午3:49:33 
+	 * @param json
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Map<String,Object>> toMapsFromJson(String json){
+		List<Map<String,Object>> mapList = new ArrayList<Map<String,Object>>();
+		try {
+			Object[] arrayMaps = RestUtil.fromJson(json, Object[].class);
+			if(!ArrayUtils.isEmpty(arrayMaps)){
+				for(Object o : arrayMaps){
+					Map<String,Object> map = (Map<String, Object>) o;
+					mapList.add(map);
+				}
+			}
+		} catch (Throwable e) {
+			e.printStackTrace();
+		}
+		return mapList;
+	}
+	
+	/**
+	 * 订单店铺优惠校验
+	 * @CreateDate : 2015年10月14日 下午1:13:20 
+	 * @param couponId 			优惠卷ID
+	 * @param productIds		优惠产品IDs
+	 * @param discountAmount 	需要校验的优惠价格
+	 * @param totalAmount		产品实付价汇总
+	 * @param order_id			订单ID
+	 * @throws Exception
+	 */
+	public void checkCoupon(Long couponId, String productIds,
+			BigDecimal discountAmount, BigDecimal totalAmount, Long order_id,Long trade_id,
+			AppOrderParam orderParam) {
+		Long buy_store_id = orderParam.getBuyer_store_id();
+		if(couponId != null && couponId != 0l){
+			StoreCoupon storeCoupon = storeCouponMapper.selectByPrimaryKey(couponId);
+			if(storeCoupon == null || storeCoupon.getId() == null || storeCoupon.getId() == 0l){
+				throw new ServiceException(TradeAddErrorCode.COUPON_NOT_EXIST_ERROR,"没有找到优惠券id"+couponId+"的优惠券");
+			}
+			if(storeCoupon.getState() != 0 && storeCoupon.getState() != 1){
+				throw new ServiceException(TradeAddErrorCode.COUPON_NOT_AVAILABLE_ERROR,"优惠券id为"+couponId+"的优惠券无法使用");
+			}
+			if(!buy_store_id.equals(storeCoupon.getFkStoreId())){
+				throw new ServiceException(TradeAddErrorCode.COUPON_NOT_AVAILABLE_ERROR,"改优惠券id"+couponId+"不属于店铺ID"+buy_store_id);
+			}
+			
+			if(storeCoupon.getCouponType()==1){ //代金券total_amount  总金额减
+				if(storeCoupon.getTotalAmount().compareTo(BigDecimal.ZERO) == 0){
+					if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+						throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+					}
+				}else{
+					if(totalAmount.compareTo(storeCoupon.getTotalAmount()) >=0 ){
+						if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+							throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+						}
+					}else{
+						throw new ServiceException(TradeAddErrorCode.COUPON_CONDITION_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券在该订单中无法满足使用条件");
+					}
+				}
+			}else if(storeCoupon.getCouponType()==2){//邮资卡
+				if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+					throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+				}
+			}else if(storeCoupon.getCouponType()==3){//3(指定产品减少价格
+				if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+					throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+				}
+			}else if(storeCoupon.getCouponType()==4){//4(创业基金)创业折扣率
+				// 剩余金额
+				BigDecimal leavingAmount = storeCoupon.getCouponLeavingAmount();
+				// 优惠金额
+				BigDecimal discountRateAmount = totalAmount.multiply(storeCoupon.getDiscountRate()).divide(BigDecimal.valueOf(100));
+				
+				 if(leavingAmount == null){
+					 throw new ServiceException("创业基金为空，请配置");
+				 }
+				 // 优惠金额 大于 剩余金额 则取剩余金额
+				 if(discountRateAmount.compareTo(leavingAmount) > 0){
+					 if(leavingAmount.compareTo(discountAmount) != 0){
+						 throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+					 }
+				 }else{
+					 if(discountRateAmount.compareTo(discountAmount) != 0){
+						 throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+					 }
+				 }
+				 
+				 if(leavingAmount.compareTo(discountAmount)<0){
+					 throw new ServiceException(TradeAddErrorCode.COUPON_LEAVING_AMOUNT_NOT_SUFFICIENT_FUNDS_ERROR,"该创业余额不足");
+				 }
+				 storeCoupon.setCouponLeavingAmount(leavingAmount.subtract(discountAmount));
+			}else if(storeCoupon.getCouponType()==5){//5(优惠码）满多少减多少
+				if(storeCoupon.getTotalAmount().compareTo(BigDecimal.ZERO) == 0){
+					if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+						throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+					}
+				}else{
+					if(totalAmount.compareTo(storeCoupon.getTotalAmount()) >=0 ){
+						if(storeCoupon.getSubtracttAmount().compareTo(discountAmount) != 0){
+							throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+						}
+					}else{
+						throw new ServiceException(TradeAddErrorCode.COUPON_DISCOUNT_INCONSISTENT_ERROR,"优惠券id为"+couponId+"的优惠券优惠券金额不符");
+					}
+				}
+			}else{
+				throw new ServiceException(TradeAddErrorCode.COUPON_COUPONTYPE_ERROR,"优惠券id为"+couponId+"的优惠券类型有误");
+			}
+			
+			// 如果是创业基金 需要保存记录到 store_coupon_record 店铺优惠记录表中
+			if(storeCoupon.getCouponType()==4){
+				StoreCouponRecord sCrecord = new StoreCouponRecord();
+				// 店铺优惠劵id
+				sCrecord.setFkStoreCouponId(couponId);
+				// 会员ID
+				sCrecord.setFkMemberId(orderParam.getBuye_store_member_id());
+				// 店铺ID 
+				sCrecord.setFkStoreId(buy_store_id);
+				// 交易单ID
+				sCrecord.setFkTradeId(trade_id);
+				// 商户ID
+				sCrecord.setFkSupplierId(orderParam.getSupplier_id());
+				// 商户店铺ID
+				sCrecord.setFkSupplierStoreId(orderParam.getSeller_store_id());
+				// 优惠劵金额，优惠劵的面值总金额
+				sCrecord.setCouponAmount(discountAmount);
+				// 优惠劵剩余金额
+				sCrecord.setCouponLeavingAmount(storeCoupon.getCouponLeavingAmount());
+				// 操作类型
+				sCrecord.setOpType("减优惠券");
+				sCrecord.setOpTime(DateUtil.now());
+				
+				storeCouponRecordMapper.insertSelective(sCrecord);
+			}
+			
+			// 如果是  coupontype = 4 创业基金 且coupon_leaving_amount剩余金额 > 0,设置state = 1 使用中
+			if(storeCoupon.getCouponType()==4 && storeCoupon.getCouponLeavingAmount().compareTo(BigDecimal.ZERO) > 0){
+				storeCoupon.setState(1);
+			}else{
+				storeCoupon.setState(3);
+			}
+			storeCouponMapper.updateByPrimaryKeySelective(storeCoupon);
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put("type", "COUPON");
+			map.put("discount_amount", discountAmount);
+			map.put("product_ids", productIds);
+			map.put("fk_order_id", order_id);
+			map.put("create_time", new Date());
+			tradeDao.insertPreferentialRecord(map);
+		}
+	}
+	
+	/**
+	 * 校验并更新产品库存
+	 * 库存更新有加锁
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月14日 下午1:11:18 
+	 * @param productId
+	 * @param productSkuId
+	 * @param amount
+	 */
+	private void checkProductSkuStock(Long productId,Long productSkuId,Integer amount){
+		
+		Product product = this.tradeDao.selectGdsProductByPrimaryKeyForUpdate(productId);
+		if(product != null){
+			
+			// 商品库存数量
+			Integer product_stock = product.getProductStock() == null?0:product.getProductStock();
+			
+			if(product_stock < 0){
+				throw new ServiceException("产品ID"+productId+"库存有误");
+			}
+			
+			if(product_stock < amount){
+				throw new ServiceException("库存不足,产品ID"+productId+"库存为("+product_stock+")");
+			}
+			
+			product.setProductStock(product_stock - amount);
+			
+			this.productMapper.updateByPrimaryKey(product);
+			
+		}
+		
+		ProductSku productSku = this.tradeDao.selectGdsProductSkuByPrimaryKeyForUpdate(productSkuId);
+		if(productSku != null){
+			// 商品库存数量
+			Integer product_stock = productSku.getProductStock() == null?0:productSku.getProductStock();
+			
+			if(product_stock < 0){
+				throw new ServiceException("产品skuID"+productSkuId+"库存有误");
+			}
+			
+			if(product_stock < amount){
+				throw new ServiceException("库存不足,产品skuID"+productSkuId+"库存为("+product_stock+")");
+			}
+			
+			productSku.setProductStock(product_stock - amount);
+			
+			this.productSkuMapper.updateByPrimaryKey(productSku);
+		}
+	}
+	
+	
+	/**
+	 * wap下单(代销单、自营单 )
+	 */
+	@Override
+	public TradeResult wapAdd(WapTradeParam params) {
+		OrderType orderType = OrderType.getValue(params.getTrade_type());
+		
+		// 检验用户
+		checkMember(params.getMember_id());
+				
+		Trade trade = new Trade();//交易信息
+		trade.setId(SEQGenerate.getId());
+		
+		// 标题，用于保存订单产品名称，如果一个以上，直接在第一个产品名称后面加等等就好。
+		String tradeTitle = null;
+		
+		OrderReceiver orderReceiver = new OrderReceiver();//收货物流信息
+		orderReceiver.setId(SEQGenerate.getId());
+		orderReceiver.setCreateUserId(SessionUtils.getMember_id());
+		orderReceiver.setCreateTime(new Date());
+		orderReceiver.setFkTradeId(trade.getId());
+		orderReceiver.setReceiverMobile(params.getReceiver_mobile());
+		orderReceiver.setReceiverName(params.getReceiver_name());
+		orderReceiver.setReceiverPhoneExt(params.getReceiver_mobile());
+		orderReceiver.setReceiverPhoneNumber(params.getReceiver_mobile());
+		orderReceiver.setReceiverZipCode(params.getReceiver_zip_code());
+		orderReceiver.setReceiverAddress(params.getReceiver_address());
+		orderReceiver.setReceiverAreaCcode(params.getReceiver_area_ccode());
+		if(params.getReceiver_area_ccode() != null){
+			orderReceiver.setAddressRegionName(valueRedisTemplate.get(params.getReceiver_area_ccode()));
+		}
+		
+		BigDecimal tradeAppDiscountTotalAmount = BigDecimal.ZERO;//平台优惠
+		BigDecimal tradeFreightTotalAmount = BigDecimal.ZERO;  //邮费
+		BigDecimal tradeOrderDiscountTotalAmount=  BigDecimal.ZERO;//订单优惠总金额
+		BigDecimal tradeTotalAmount = BigDecimal.ZERO; //订单实付总金额
+		BigDecimal tradeProductTotalAmount = BigDecimal.ZERO; //产品总 金额
+		
+		if(params.getReceiver_type().equals(0)){//收货方式(0：自提，1：物流快递)
+			if(params.getWarehouse_id() != null && params.getWarehouse_id() != 0l){
+				SupplierWarehouse supplierWarehouse = supplierWarehouseMapper.selectByPrimaryKey(params.getWarehouse_id());
+				if(supplierWarehouse == null || supplierWarehouse.getId() == null || supplierWarehouse.getId() == 0l || supplierWarehouse.getState() != 50){
+					throw new ServiceException(TradeAddErrorCode.RECEIVE_WAREHOURE_IS_NULL_ERROR,"收货方式为自提的时候没找到该自提点");
+				}
+				orderReceiver.setPickupplaceBusinessTime(supplierWarehouse.getOpeningTime());
+				orderReceiver.setPickupplaceContactName(supplierWarehouse.getTel());
+				orderReceiver.setReceiverAddress(supplierWarehouse.getAddress());
+				orderReceiver.setAddressRegionName(supplierWarehouse.getAreaCcodeName());
+				orderReceiver.setPickupplacePhoneArea(null);
+				orderReceiver.setPickupplaceContactName(supplierWarehouse.getLinkman());
+				orderReceiver.setPickupplacePhoneNumber(supplierWarehouse.getMoblie());
+			}else{
+				throw new ServiceException(TradeAddErrorCode.RECEIVE_WAREHOURE_ID_ID_NOT_NULL_ERROR,"收货方式为自提的时候必须选择自提点");
+			}
+			
+		}else if(params.getReceiver_type().equals(1)){
+			
+		}
+		//orderReceiver.setAddressRegionName(params.getReceiver_address());//代码的地址
+		orderReceiver.setReceiverAreaCcode(params.getReceiver_area_ccode());
+		orderReceiver.setFkTradeId(trade.getId());
+		
+		List<Order> orders = new ArrayList<Order>();//订单信息
+		List<OrderDetail> orderDetails = new ArrayList<OrderDetail>();//订单明细信息
+		
+//		OrderType orderType = OrderType.getValue(params.getOrder_type());
+		List<WapOrderParam> orderParams = params.getOrders();
+		if(orderParams != null && !orderParams.isEmpty()){
+			for (WapOrderParam orderParam : orderParams) {
+				Order order =new Order();//订单信息
+				orders.add(order);
+				order.setId(SEQGenerate.getId());
+				order.setFkTradeId(trade.getId());
+				
+				List<com.jbh360.trade.vo.param.WapProduct> productParams = orderParam.getProducts();
+				
+				
+				/************************************订单明细计算开始********************************************************************/
+				/**********************************************************************************************************************/
+				/**********************************************************************************************************************/
+				/**********************************************************************************************************************/
+				// 订单优惠金额  = 私密折扣价
+				BigDecimal order_discount_aAmount = BigDecimal.ZERO;
+				BigDecimal orderGoodsDiscountAmount = BigDecimal.ZERO;
+				BigDecimal orderPayAmount = BigDecimal.ZERO;
+				
+				if(productParams != null && !productParams.isEmpty()){
+					for (com.jbh360.trade.vo.param.WapProduct productParam : productParams) {
+						OrderDetail orderDetail = new OrderDetail();
+						orderDetails.add(orderDetail);
+						orderDetail.setId(SEQGenerate.getId());
+						orderDetail.setFkTradeId(trade.getId());
+						orderDetail.setFkOrderId(order.getId());
+						orderDetail.setFkProductId(productParam.getProduct_id());
+						orderDetail.setSkuBarcode(productParam.getProduct_sku_barcode());
+						orderDetail.setFkStoreGoodsId(productParam.getStore_goods_id());
+						orderDetail.setBuyCount(productParam.getBuy_count());
+						orderDetail.setCreateTime(new Date());
+						orderDetail.setExpressState((short)0);
+						orderDetail.setServiceState(null);
+						
+						Product minimallProduct = productMapper.selectByPrimaryKey(productParam.getProduct_id());
+						if(minimallProduct == null || minimallProduct.getId() == null || minimallProduct.getId() == 0l){
+							throw new  ServiceException(TradeAddErrorCode.PRODUCT_NOT_EXIST_ERROR,"id为"+productParam.getProduct_id()+"的商品不存在");
+						}
+						orderDetail.setProductName(minimallProduct.getName());
+						orderDetail.setProductLogoRsurl(minimallProduct.getLogoRsurl());
+						
+						ProductSkuExample example = new ProductSkuExample();
+						example.createCriteria().andFkProductIdEqualTo(productParam.getProduct_id()).andProductSkuBarcodeEqualTo(productParam.getProduct_sku_barcode());
+						List<ProductSku> productSkus = productSkuMapper.selectByExample(example);
+						if(productSkus == null || productSkus.isEmpty()){
+							throw new  ServiceException(TradeAddErrorCode.PRODUCT_SKU_NOT_EXIST_ERROR,"product_sku_barcode为"+productParam.getProduct_sku_barcode()+"的商品不存在");
+						}
+						ProductSku productSku = productSkus.get(0);
+						orderDetail.setFkProductHistoryId(productSku.getCurrentHistoryId());
+						orderDetail.setFkProductHistorySkuId(productSku.getId());
+						
+						
+						orderDetail.setProductVersionNo(productSku.getCurrentHistoryVersion());
+						orderDetail.setOuterSkuCode(productSku.getOuterSkuId());
+						orderDetail.setSaleUnitPrice(productSku.getSettlementPrice());	//代销单：店铺销售单价；自营单:店铺销售单价(取自产品表的结算价)
+						
+						/**
+						 * 校验更新库存
+						 */
+						checkProductSkuStock(productParam.getProduct_id(), productSku.getId(), productParam.getBuy_count());
+						
+						if(orderType.equals(OrderType.代销单)){
+							// 设置是否七天退货
+							order.setIsSupportSellService(getSupportReturnType(orderParam.getSeller_store_id()));
+							
+							orderDetail.setSettleUnitPrice(productSku.getSettlementPrice());
+							/**
+							 * 私密折扣
+							 */
+							StoreGoodsSkuExample storeGoodsSkuExample = new StoreGoodsSkuExample();
+							storeGoodsSkuExample.createCriteria().andStateEqualTo(Constants.CommonState.NORMAL.getValue()).andProductSkuBarcodeEqualTo(productParam.getProduct_sku_barcode());
+							List<StoreGoodsSku> storeGoodsSkus=storeGoodsSkuMapper.selectByExample(storeGoodsSkuExample);
+							if(storeGoodsSkus==null || storeGoodsSkus.isEmpty() || storeGoodsSkus.size() != 1){
+								throw new ServiceException(TradeAddErrorCode.STOREGOODS_IS_NULL_ERROR,"没找到该店铺的商品");
+							}
+							
+							orderDetail.setFkPromotionId(productParam.getPromotion_id());
+							//  销售单价
+							orderDetail.setSaleUnitPrice(storeGoodsSkus.get(0).getStoreSalePrice());
+							if(productParam.getPromotion_id() != null && productParam.getPromotion_id() != 0l){
+								
+								StorePromotion storePromotion = storePromotionMapper.selectByPrimaryKey(productParam.getPromotion_id());
+							
+								if(storePromotion.getEffectStartTime().after(new Date())){
+									throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_NOT_BEGIN_ERROR,"该折扣优惠未开始");
+								}else if(storePromotion.getEffectEndTime().before(new Date())){
+									throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_OVER_ERROR,"该折扣优惠已结束");
+								}
+								
+								if(storePromotion.getDiscountType()==1){
+									orderDetail.setDealUnitPrice(storeGoodsSkus.get(0).getStoreSalePrice().multiply(storePromotion.getDiscountContent().divide(BigDecimal.valueOf(100))));
+									order_discount_aAmount.add(getPromotionDiscountAmount(storeGoodsSkus.get(0).getStoreSalePrice(), storePromotion));
+								}else if(storePromotion.getDiscountType()==2){
+									orderDetail.setDealUnitPrice(storeGoodsSkus.get(0).getStoreSalePrice().subtract(storePromotion.getDiscountContent()));
+									order_discount_aAmount.add(storePromotion.getDiscountContent());
+								}
+							}else{
+								orderDetail.setDealUnitPrice(storeGoodsSkus.get(0).getStoreSalePrice());
+							}
+							orderDetail.setGoodsDiscountAmount(orderDetail.getSaleUnitPrice().subtract(orderDetail.getDealUnitPrice()).multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+							orderDetail.setOrderDiscountShareAmount(BigDecimal.ZERO);
+							orderDetail.setPaymentAmount(orderDetail.getDealUnitPrice().multiply(BigDecimal.valueOf(orderDetail.getBuyCount())).subtract(orderDetail.getOrderDiscountShareAmount()));
+						}else if(orderType.equals(OrderType.自营单)){
+							// 设置是否七天退货
+							order.setIsSupportSellService(getSupportReturnType(orderParam.getBuyer_store_id()));
+							/**
+							 * 私密折扣
+							 */
+							orderDetail.setFkPromotionId(productParam.getPromotion_id());
+							if(productParam.getPromotion_id() != null && productParam.getPromotion_id() != 0l){
+								StorePromotion storePromotion = storePromotionMapper.selectByPrimaryKey(productParam.getPromotion_id());
+								
+								if(storePromotion.getEffectStartTime().after(new Date())){
+									throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_NOT_BEGIN_ERROR,"该折扣优惠未开始");
+								}else if(storePromotion.getEffectEndTime().before(new Date())){
+									throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_OVER_ERROR,"该折扣优惠已结束");
+								}
+								
+								if(storePromotion.getDiscountType()==1){
+									orderDetail.setDealUnitPrice(productSku.getRecommendPrice().multiply(storePromotion.getDiscountContent().divide(BigDecimal.valueOf(100))));
+									order_discount_aAmount.add(getPromotionDiscountAmount(productSku.getRecommendPrice(), storePromotion));
+								}else if(storePromotion.getDiscountType()==2){
+									orderDetail.setDealUnitPrice(productSku.getRecommendPrice().subtract(storePromotion.getDiscountContent()));
+									order_discount_aAmount.add(storePromotion.getDiscountContent());
+								}
+							}else{
+								orderDetail.setDealUnitPrice(productSku.getSettlementPrice());
+							}
+						
+							orderDetail.setGoodsDiscountAmount(orderDetail.getSaleUnitPrice().subtract(orderDetail.getDealUnitPrice()).multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+							orderDetail.setOrderDiscountShareAmount(BigDecimal.ZERO);
+							orderDetail.setPaymentAmount(orderDetail.getDealUnitPrice().multiply(BigDecimal.valueOf(orderDetail.getBuyCount())).subtract(orderDetail.getOrderDiscountShareAmount()));
+						}else{
+							throw new ServiceException("订单类型trade_type错误，只能是代销单(2)或自营单(3)");
+						}
+					 
+						 
+						orderDetail.setPaymentAmount(orderDetail.getDealUnitPrice().multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+						orderDetail.setGoodsDiscountAmount(orderDetail.getSaleUnitPrice().subtract(orderDetail.getDealUnitPrice()).multiply(BigDecimal.valueOf(orderDetail.getBuyCount())));
+						orderGoodsDiscountAmount = orderGoodsDiscountAmount.add(orderDetail.getGoodsDiscountAmount());
+						
+						log.info("商品ID"+orderDetail.getFkProductId()+"支付价为："+orderDetail.getPaymentAmount());
+						orderPayAmount = orderPayAmount.add(orderDetail.getPaymentAmount());
+					}
+				}
+				
+				/************************************订单明细计算结束********************************************************************/
+				
+				
+				/****
+				 * 开始处理订单
+				 */
+				order.setBuyerRemark(orderParam.getBuyer_remark());
+				order.setIsFreeze((short)0);
+				order.setCreateTime(new Date());
+				order.setCreateUserId(SessionUtils.getMember_id());
+				order.setDealType((short)2);//及时到账
+				StoreInfo  buerStoreInfo = storeInfoMapper.selectByPrimaryKey(orderParam.getBuyer_store_id());
+				if(buerStoreInfo != null && buerStoreInfo.getId() != 0l && buerStoreInfo.getIsGuarantee() != null){
+					if(buerStoreInfo.getIsGuarantee().equals((short)1)){
+						order.setDealType((short)1);//是担保
+					}
+				}
+				order.setOrderType(orderType.getKey());
+				order.setEndTime(new Timestamp(System.currentTimeMillis()+7*24*60*60*1000));
+				order.setExtendSingTime(null);	
+				
+				// 买方
+				order.setFkBuyerStoreId(orderParam.getBuyer_store_id());
+				order.setFkBuyeStoreMemberId(orderParam.getBuye_store_member_id());
+				// 客户
+				order.setFkCustomeMemberId(params.getMember_id());
+				
+		//		order.setFkPromotionId(orderParam.getPromotion_id());
+				
+				order.setFkOrderReceiverId(orderReceiver.getId());
+				
+				// 卖方(代销单才有)
+				if(orderType.equals(OrderType.代销单)){
+					order.setFkSellerMemberId(orderParam.getSeller_member_id());
+					order.setFkSellerStoreId(orderParam.getSeller_store_id());
+					order.setFkSellerSupplierId(orderParam.getSupplier_id());
+				}
+				
+				order.setStateCode("wait_buyer_pay");
+				order.setStateName("待付款");
+				order.setCreateUserId(SessionUtils.getMember_id());
+				order.setCreateTime(new Date());
+				order.setOrderNo(NoUtil.getOrderNo("minimall-order-no"));
+				
+				// 运费优惠（包括邮资卡）
+				order.setFreightDiscountAmount(BigDecimal.ZERO);
+				// 改价优惠
+				order.setChangePriceAmount(BigDecimal.ZERO);
+				
+				order.setOrderFreightAmount(orderParam.getOrder_freight_amount()==null?BigDecimal.ZERO:orderParam.getOrder_freight_amount());
+				
+				order.setOrderTotalPayLossAmount(BigDecimal.ZERO);
+				
+				order.setGoodsDiscountAmount(orderGoodsDiscountAmount);
+				
+				order.setOrderGoodsTotalAmount(orderPayAmount.add(orderGoodsDiscountAmount));
+				
+				/**
+				 * 私密折扣
+				 */
+				order.setFkPromotionId(orderParam.getPromotion_id());
+				if(orderParam.getPromotion_id() != null && orderParam.getPromotion_id() != 0l){
+					StorePromotion storePromotion = storePromotionMapper.selectByPrimaryKey(orderParam.getPromotion_id());
+					
+					if(storePromotion.getEffectStartTime().after(new Date())){
+						throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_NOT_BEGIN_ERROR,"该折扣优惠未开始");
+					}else if(storePromotion.getEffectEndTime().before(new Date())){
+						throw new ServiceException(TradeAddErrorCode.PROMOTION_TIME_IS_OVER_ERROR,"该折扣优惠已结束");
+					}
+					
+					if(storePromotion.getDiscountType()==1){
+						//order_discount_aAmount.add(order.getOrderGoodsTotalAmount().subtract(order.getOrderGoodsTotalAmount().multiply(storePromotion.getDiscountContent()).divide(BigDecimal.valueOf(100))));
+						order_discount_aAmount.add(getPromotionDiscountAmount(order.getOrderGoodsTotalAmount(), storePromotion));
+					}else if(storePromotion.getDiscountType()==2){
+						order_discount_aAmount.add(storePromotion.getDiscountContent());
+					}
+				}
+				
+				order.setOrderDiscountAmount(order_discount_aAmount);
+				order.setOrderDiscountTotalAmount(getOrderDiscountTotalAmount(order));
+				order.setOrderTotalAmount(getOrderTotalAmount(order));
+				
+				tradeProductTotalAmount = tradeProductTotalAmount.add(order.getOrderGoodsTotalAmount());
+				tradeFreightTotalAmount = tradeFreightTotalAmount.add(order.getOrderFreightAmount());
+				tradeOrderDiscountTotalAmount = tradeOrderDiscountTotalAmount.add(order.getOrderDiscountTotalAmount());
+				tradeTotalAmount = tradeTotalAmount.add(order.getOrderTotalAmount());
+				
+			}
+			
+		}
+		trade.setCreateTime(new Date());
+		trade.setCreateUserId(SessionUtils.getMember_id());
+		trade.setTradeNo(NoUtil.getOrderNo("minimall-trade-no"));
+		trade.setPayNo(NoUtil.getOrderNo("minimall-pay-no"));
+		trade.setStateCode("wait_buyer_pay");
+		trade.setStateName("待付款");
+		trade.setPayState((short)0);
+		// 平台优惠
+		trade.setTradeDiscountTotalAmount(tradeAppDiscountTotalAmount);
+		
+		// 商品总价
+		trade.setGoodsTotalAmount(tradeProductTotalAmount);
+		
+		// 邮费
+		trade.setFreightTotalAmount(tradeFreightTotalAmount);
+		
+		// 订单优惠总额
+		trade.setOrderDiscountTotalAmount(tradeOrderDiscountTotalAmount);
+		
+		// 优惠总额   ===  订单优惠总额  + 平台优惠总额
+		trade.setDiscountTotalAmount(tradeOrderDiscountTotalAmount.add(trade.getTradeDiscountTotalAmount()));
+		
+		// 订单支付价 === 产品总价 - 优惠总价 + 
+		trade.setTradeShouldAmount(tradeProductTotalAmount.subtract(trade.getDiscountTotalAmount()).add(tradeFreightTotalAmount));
+		
+		trade.setTradeTotalPayLossAmount(BigDecimal.ZERO);
+		trade.setFkMemberId(params.getMember_id());
+		trade.setRecycleState((short)1);
+		
+		if(!CollectionUtils.isEmpty(orderDetails)){
+			tradeTitle = orderDetails.get(0).getProductName();
+			if(orderDetails.size() > 1){
+				tradeTitle +=" 等等";
+			}
+			trade.setTitle(tradeTitle);
+		}	
+		
+		/**
+		 * 金额验证
+		 */
+		
+		if(trade.getTradeShouldAmount().compareTo(params.getTrade_total_amount()) != 0){
+			log.error("实付总金额不符,"+"前端计算："+params.getTrade_total_amount()+" 后端计算："+trade.getTradeShouldAmount());
+			throw new ServiceException("实付总金额不符",TradeAddErrorCode.PAP_AMOUONT_INCONSISTENT_ERROR);
+		}
+		
+		
+		if(tradeMapper.insertSelective(trade) > 0){
+			for (Order order : orders) {
+				orderMapper.insertSelective(order);
+			}
+			for (OrderDetail orderDetail : orderDetails) {
+				orderDetailMapper.insertSelective(orderDetail);
+			}
+			orderReceiverMapper.insertSelective(orderReceiver);
+			deleteShopCard(orderParams);
+		}
+		
+		return new TradeResult(trade.getId(), trade.getTradeNo());
+	}
+
+
+	/**
+	 * 获取私密折扣优惠价 = 商品价(订单总价) * (1-折扣率)
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月16日 下午5:05:01 
+	 * @param totalAmount 商品价 或者订单商品总价
+	 * @param storePromotion 私密折扣
+	 * @return
+	 */
+	private BigDecimal getPromotionDiscountAmount(BigDecimal totalAmount,StorePromotion storePromotion) {
+		BigDecimal discountContentTotal = BigDecimal.valueOf(1);
+		BigDecimal discountContent = storePromotion.getDiscountContent().divide(BigDecimal.valueOf(100));
+		return totalAmount.multiply(discountContentTotal.subtract(discountContent));
+	}
+
+
+	/**
+	 * 删除购物车
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年10月15日 下午3:11:24 
+	 * @param orderParams
+	 */
+	private void deleteShopCard(List<WapOrderParam> orderParams) {
+		if(!CollectionUtils.isEmpty(orderParams)){
+			for(WapOrderParam orderParam : orderParams){
+				Long[] cardIds = orderParam.getCart_ids();
+				if(cardIds != null && cardIds.length > 0){
+					for(Long cardId : cardIds){
+						ShopCart record = new ShopCart();
+						record.setId(cardId);
+						record.setState(Constants.CommonState.DELETE.getValue());
+						this.shopCartMapper.updateByPrimaryKeySelective(record);
+					}
+				}
+			}
+		}
+	}
+	
+	
+	/**
+	 * 是否支持7天无理由退换货（0：不支持，1：支持）
+	 * @author : liguosheng 
+	 * @CreateDate : 2015年11月2日 上午11:23:20 
+	 * @param storeId
+	 * @return
+	 */
+	private Short getSupportReturnType(Long storeId){
+		StoreInfo storeInfo = this.storeInfoMapper.selectByPrimaryKey(storeId); 
+		if(storeInfo != null){
+			return storeInfo.getIsReturn();
+		}
+		return null;
+	}
+	
+}
+
+
+
+

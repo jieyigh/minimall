@@ -1,0 +1,24 @@
+package com.jbh360.trade.service;
+
+import java.math.BigDecimal;
+
+import com.jbh360.trade.vo.param.AppTradeParam;
+import com.jbh360.trade.vo.param.WapTradeParam;
+import com.jbh360.trade.vo.rs.TradeResult;
+
+/**  
+* @Title: TradeService.java
+* @Package com.jbh360.trade.service
+* @Description: TODO(用一句话描述该文件做什么)
+* @author joe 
+* @email aboutou@126.com 
+* @date 2015年10月3日 下午2:31:52
+* @version V3.0  
+*/
+public interface TradeService {
+	
+	
+	public TradeResult appAdd(AppTradeParam params) throws Exception;
+	public TradeResult wapAdd(WapTradeParam params) ;
+	public void checkCoupon(Long couponId, String productIds, BigDecimal discountAmount, BigDecimal totalAmount, Long orderId)throws Exception;
+}

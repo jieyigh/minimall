@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderDao">
+	<resultMap type="com.jbh360.trade.vo.rs.OrderVo" id="OrderVoMap" extends="com.jbh360.trade.mapper.OrderMapper.BaseResultMap">
+	</resultMap>
+	
+	<select id="selectByOrderNoForUpdate" parameterType="java.lang.String" resultMap="OrderVoMap">
+    select 
+    * 
+    from tdo_order
+    where order_no = #{order_no,jdbcType=VARCHAR} for update
+    
+  	</select>
+  	
+  	<select id="selectByPrimaryKeyForUpdate" parameterType="java.lang.Long" resultMap="OrderVoMap">
+        SELECT a.* FROM tdo_order a where a.id = #{id}  FOR UPDATE
+    </select>
+    
+    
+</mapper>

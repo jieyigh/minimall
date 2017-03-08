@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderPayFlowDao">
+	<resultMap type="com.jbh360.trade.vo.rs.OrderPayFlowVo" id="OrderPayFlowVoMap" extends="com.jbh360.trade.mapper.OrderPayFlowMapper.BaseResultMap">
+	</resultMap>
+	
+  	
+  	<select id="selectByPayNoForUpdate" parameterType="java.lang.String" resultMap="OrderPayFlowVoMap">
+    select 
+    * 
+    from tdo_order_pay_flow
+    where pay_no = #{pay_no,jdbcType=VARCHAR} for update
+  	</select>
+  	
+  	
+  	<select id="selectByFkTradeIdForUpdate" parameterType="java.lang.Long" resultMap="OrderPayFlowVoMap">
+    select 
+    * 
+    from tdo_order_pay_flow
+    where fk_trade_id = #{fk_trade_id,jdbcType=BIGINT} for update
+  	</select>
+    
+</mapper>

@@ -1,0 +1,1446 @@
+package com.jbh360.trade.service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.ibatis.session.RowBounds;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.SuccessResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.BeanUtil;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.Constants.OrderServiceDealType;
+import com.jbh360.common.utils.Constants.OrderServiceRefundReason;
+import com.jbh360.common.utils.DateUtil;
+import com.jbh360.common.utils.Page;
+import com.jbh360.member.oms.entity.Member;
+import com.jbh360.member.oms.mapper.MemberMapper;
+import com.jbh360.system.entity.ExpressCompany;
+import com.jbh360.system.mapper.ExpressCompanyMapper;
+import com.jbh360.trade.dao.OrderServiceDao;
+import com.jbh360.trade.entity.Order;
+import com.jbh360.trade.entity.OrderDetail;
+import com.jbh360.trade.entity.OrderService;
+import com.jbh360.trade.entity.OrderServiceExample;
+import com.jbh360.trade.entity.OrderServicePicture;
+import com.jbh360.trade.entity.OrderServiceRecord;
+import com.jbh360.trade.entity.Trade;
+import com.jbh360.trade.mapper.OrderDetailMapper;
+import com.jbh360.trade.mapper.OrderMapper;
+import com.jbh360.trade.mapper.OrderServiceMapper;
+import com.jbh360.trade.mapper.OrderServicePictureMapper;
+import com.jbh360.trade.mapper.OrderServiceRecordMapper;
+import com.jbh360.trade.mapper.TradeMapper;
+import com.jbh360.trade.vo.param.OrderServiceParams;
+import com.jbh360.trade.vo.rs.OrderResult;
+import com.jbh360.trade.vo.rs.OrderServicePictureResult;
+import com.jbh360.trade.vo.rs.OrderServicePictureVo;
+import com.jbh360.trade.vo.rs.OrderServiceRecordResult;
+import com.jbh360.trade.vo.rs.OrderServiceRecordVo;
+import com.jbh360.trade.vo.rs.OrderServiceRefundReasonType;
+import com.jbh360.trade.vo.rs.OrderServiceResult;
+import com.jbh360.trade.vo.rs.OrderServiceVo;
+
+/**
+ * 售后单
+ * 
+ * @author 揭懿
+ *
+ */
+@Service
+public class OrderServiceServiceImpl{
+    @Autowired
+    private OrderMapper orderMapper;
+    
+    @Autowired
+    private OrderDetailMapper orderDetailMapper;
+    
+    @Autowired
+    private TradeMapper tradeMapper;
+    
+    
+    @Autowired
+    private OrderServiceMapper orderServiceMapper;
+    
+    @Autowired
+    private MemberMapper memberMapper;
+    
+    @Autowired
+    private ExpressCompanyMapper expressCompanyMapper;
+    
+    @Autowired
+    private OrderServicePictureMapper orderServicePictureMapper;
+	
+	@Autowired
+    private OrderServiceRecordMapper orderServiceRecordMapper;
+	
+	@Autowired
+    private OrderServiceDao orderServiceDao;
+	
+    
+	/**
+	 * 退款处理方式
+	 * @author 揭懿
+	 * @param params
+	 * @return
+	 */
+    public List<com.jbh360.trade.vo.rs.OrderServiceDealType> getOrderServiceDealType(OrderServiceParams params){
+    	List<com.jbh360.trade.vo.rs.OrderServiceDealType> orderServiceDealTypeList = new ArrayList<com.jbh360.trade.vo.rs.OrderServiceDealType>();
+    	Order order = orderMapper.selectByPrimaryKey(params.getFk_order_id());
+    	if(null != order){
+    		if(null != order.getStateCode()){
+    			if(order.getStateCode().equals(Constants.OrderStateCode.待收货.getKey())){
+    				return getOrderServiceDealTypeList();
+    			}else if(order.getStateCode().equals(Constants.OrderStateCode.待发货.getKey())){
+    				com.jbh360.trade.vo.rs.OrderServiceDealType orderServiceDealType = new com.jbh360.trade.vo.rs.OrderServiceDealType();
+    	    		orderServiceDealType.setDeal_type(Constants.OrderServiceDealType.我要退款但不退货.getKey());
+    	    		orderServiceDealType.setDeal_type_name(Constants.OrderServiceDealType.我要退款但不退货.getValue());
+    	    		orderServiceDealTypeList.add(orderServiceDealType);
+    	    		return orderServiceDealTypeList;
+    			}
+    		}
+    	}
+    	return getOrderServiceDealTypeList();
+    }
+    
+    /**
+     * 退款处理方式
+     * @author 揭懿
+     * @return
+     */
+    public List<com.jbh360.trade.vo.rs.OrderServiceDealType> getOrderServiceDealTypeList(){
+    	List<com.jbh360.trade.vo.rs.OrderServiceDealType> orderServiceDealTypeList = new ArrayList<com.jbh360.trade.vo.rs.OrderServiceDealType>();
+    	OrderServiceDealType[] types = Constants.OrderServiceDealType.values();
+    	for(OrderServiceDealType type:types){
+    		com.jbh360.trade.vo.rs.OrderServiceDealType orderServiceDealType = new com.jbh360.trade.vo.rs.OrderServiceDealType();
+    		orderServiceDealType.setDeal_type(type.getKey());
+    		orderServiceDealType.setDeal_type_name(type.getValue());
+    		orderServiceDealTypeList.add(orderServiceDealType);
+    	}
+    	return orderServiceDealTypeList;
+    }
+    
+    /**
+     * 退款原因
+     * @author 揭懿
+     * @return
+     */
+    public List<OrderServiceRefundReasonType> getOrderServiceRefundReasonType(){
+    	List<OrderServiceRefundReasonType> orderServiceRefundReasonTypeList = new ArrayList<OrderServiceRefundReasonType>();
+    	OrderServiceRefundReason[] types = Constants.OrderServiceRefundReason.values();
+    	
+    	for(OrderServiceRefundReason type:types){
+    		OrderServiceRefundReasonType orderServiceRefundReasonType = new OrderServiceRefundReasonType();
+    		orderServiceRefundReasonType.setRefund_reason_type_id(type.getKey());
+    		orderServiceRefundReasonType.setRefund_reason_type_name(type.getValue());
+    		orderServiceRefundReasonTypeList.add(orderServiceRefundReasonType);
+    	}
+    	
+    	return orderServiceRefundReasonTypeList;
+    }
+    
+    //申请
+    public OrderServiceResult apply(OrderServiceParams params,ErrorResult error){
+    	return null;
+    }
+    
+    public void save(OrderServiceParams params){
+    	OrderService record = new OrderService();
+    	
+    	String applyName = null;
+    	String billNo = null;
+    	Long fkCouponId = null;
+    	Long fkMemberId = null;
+    	
+    	Trade trade = new Trade();
+    	Order order = new Order();
+    	OrderDetail orderDetail = new OrderDetail();
+    	
+    	BigDecimal paymentAmount = new BigDecimal(0);
+    	
+    	if(null != params.getCurrent_user_id()){
+    		Member member = memberMapper.selectByPrimaryKey(params.getCurrent_user_id());
+        	if(null != member){
+        		applyName = member.getRealName();
+        	}
+    	}
+    	
+    	if(null != params.getFk_trade_id()){
+    		trade = tradeMapper.selectByPrimaryKey(params.getFk_trade_id());
+    		fkMemberId = trade.getFkMemberId();
+    	}
+    	
+    	if(null != params.getFk_order_id()){
+    		order = orderMapper.selectByPrimaryKey(params.getFk_order_id());
+    		fkCouponId = order.getFkCouponId();
+    		
+    		paymentAmount = order.getOrderPaymentAmount();
+    	}
+    	
+    	if(null != params.getFk_order_detail_id()){
+    	    orderDetail = orderDetailMapper.selectByPrimaryKey(params.getFk_order_detail_id());
+    		fkCouponId = orderDetail.getFkCouponId();
+    		
+    		
+    	}else{
+    		
+    	}
+    	
+    	record.setApplyName(applyName);
+    	record.setApplyPhone(params.getApply_phone());
+    	record.setApplyTime(DateUtil.now());
+    	
+    	//TODO
+    	//售后单号
+    	billNo = DateUtil.format(DateUtil.createDateFormat("yyyyMMddHHmmssSSS"), DateUtil.now());
+    	record.setBillNo(billNo);
+    	
+    	record.setCreateTime(DateUtil.now());
+    	record.setCreateUserId(params.getCurrent_user_id());
+    	
+    	record.setDealType(params.getDeal_type());
+    	record.setDealType(Constants.OrderServiceDealType.getValue(params.getDeal_type()).getValue());
+    	
+    	record.setFkCouponId(fkCouponId);
+    	record.setFkCustomerId(fkMemberId);
+    	record.setFkOrderDetailId(params.getFk_order_detail_id());
+    	record.setFkOrderId(params.getFk_order_id());
+    	/*record.setFkShopMemberId(fkShopMemberId);
+    	record.setFkShopStoreId(fkShopStoreId);
+    	record.setFkShopSupplierId(fkShopSupplierId);
+    	record.setFkSupplierId(fkSupplierId);
+    	record.setFkSupplierMemberId(fkSupplierMemberId);
+    	record.setFkSupplierStoreId(fkSupplierStoreId);*/
+    	record.setFkTradeId(params.getFk_trade_id());
+    	
+    	record.setMarkedWords(Constants.OrderServiceMarkedWords.等待商家处理退款申请.getValue());
+    	
+    	record.setOrderType(order.getOrderType());
+    	//TODO
+    	//record.setProductLogoRsurl(orderDetail.get);
+    	record.setProductName(orderDetail.getProductName());
+    	
+    	short refundCount = orderDetail.getBuyCount().shortValue();
+    	record.setRefundCount(refundCount);
+    	record.setRefundCouponAmount(orderDetail.getGoodsDiscountAmount());
+    	
+    	//实际支付的
+    	record.setRefundGoodsPrice(orderDetail.getPaymentAmount());
+    	
+    	BigDecimal refundPrice = new BigDecimal(params.getRefund_price());
+    	record.setRefundPrice(refundPrice);
+    	
+    	if(refundPrice.compareTo(orderDetail.getPaymentAmount())>0){
+    		BigDecimal refundExpressPrice = refundPrice.subtract(orderDetail.getPaymentAmount());
+    		//运费
+        	record.setRefundExpressPrice(refundExpressPrice);
+    	}
+    	
+    	record.setRefundReasonTypeId(params.getRefund_reason_type_id());
+    	record.setRefundReasonTypeName(Constants.OrderServiceRefundReason.getValue(params.getRefund_reason_type_id()).getValue());
+    	record.setRefundRemark(params.getApply_remark());
+    	
+    	record.setSkuPropertyValue(orderDetail.getSkuPropertyValue());
+    	record.setStartTime(DateUtil.now());	
+    	record.setStateCode(Constants.OrderServiceStateCode.申请中.getKey());
+    	record.setStateName(Constants.OrderServiceStateCode.申请中.getValue());
+    	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待商家处理.getKey());
+    	record.setSubStateName(Constants.OrderServiceSubStateCode.等待商家处理.getValue());
+    	
+    	
+    	record.setRefundReasonTypeId(params.getRefund_reason_type_id());
+    	record.setRefundReasonTypeName(Constants.OrderServiceRefundReason.getValue(params.getRefund_reason_type_id()).getValue());
+    	
+    	orderServiceMapper.insertSelective(record);
+    	
+    	OrderServiceRecord recRecord = new OrderServiceRecord();
+    	recRecord.setApplyPhone(params.getApply_phone());
+    	recRecord.setCreateTime(DateUtil.now());
+    	recRecord.setCreateUserId(params.getCurrent_user_id());
+    	recRecord.setDealType(params.getDeal_type());
+    	recRecord.setDealType(Constants.OrderServiceDealType.getValue(params.getDeal_type()).getValue());
+    	
+    	recRecord.setFkServiceId(record.getId());
+    	
+    	recRecord.setOpSign(Constants.OrderServiceOpSign.发起了退款申请等待商家处理.getValue());
+    	recRecord.setOpTime(DateUtil.now());
+    	recRecord.setOpType(Constants.OrderServiceRecordOpType.申请退款.getKey());
+    	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.申请退款.getValue());
+    	recRecord.setOpUserId(params.getCurrent_user_id());
+    	recRecord.setOpUserName(applyName);
+    	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+    	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+    	
+    	recRecord.setRefundPrice(refundPrice);
+    	recRecord.setRefundReasonTypeName(record.getRefundReasonTypeName());
+    	recRecord.setRefundRemark(record.getRefundRemark());
+    	
+    	orderServiceRecordMapper.insertSelective(recRecord);
+    	//
+		if(null != params.getBuyer_express_pic_rsurl() && params.getBuyer_express_pic_rsurl().length>0){
+			for(String rsurl:params.getBuyer_express_pic_rsurl()){
+				OrderServicePicture picRecord = new OrderServicePicture();
+		    	picRecord.setCreateTime(DateUtil.now());
+		    	picRecord.setFkServiceId(record.getId());
+		    	picRecord.setFkServiceRecordId(recRecord.getId());
+		    	picRecord.setOpType(Constants.OrderServiceRecordOpType.申请退款.getKey());
+		    	picRecord.setOpTypeName(Constants.OrderServiceRecordOpType.申请退款.getValue());
+		    	picRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+		    	picRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+		    	picRecord.setPicRsurl(rsurl);
+		    	
+		    	orderServicePictureMapper.insertSelective(picRecord);
+			}
+		}
+    }
+    
+    //查询售后单是否已经申请过
+    public void checkOrderService(OrderServiceParams params){
+    	if(null != params.getFk_order_detail_id()){
+    		OrderServiceExample example = new OrderServiceExample();
+    		OrderServiceExample.Criteria criteria = example.createCriteria();
+    		criteria.andFkOrderDetailIdEqualTo(params.getFk_order_detail_id());
+    		List<OrderService> orderServiceLists = orderServiceMapper.selectByExample(example);
+    		if(null != orderServiceLists && !orderServiceLists.isEmpty()){
+    			
+    		}
+    	}else{
+			OrderServiceExample example = new OrderServiceExample();
+    		OrderServiceExample.Criteria criteria = example.createCriteria();
+    		criteria.andFkOrderIdEqualTo(params.getFk_order_id());
+    		List<OrderService> orderServiceLists = orderServiceMapper.selectByExample(example);
+    		if(null != orderServiceLists && !orderServiceLists.isEmpty()){
+    			
+    		}
+    	}
+    }
+    
+    //获取退款最大值
+    public BigDecimal getMaxRefundPrice(OrderServiceParams params){
+    	BigDecimal maxRefundPrice = new BigDecimal(0);
+    	//是否第一次退款
+    	boolean first = false;
+    	
+    	BigDecimal freightAmount = new BigDecimal(0);
+    	
+    	Order order = new Order();
+    	
+    	if(null != params.getFk_order_id()){
+    		
+    		OrderServiceExample example = new OrderServiceExample();
+    		OrderServiceExample.Criteria criteria = example.createCriteria();
+    		criteria.andFkOrderIdEqualTo(params.getFk_order_id());
+    		List<OrderService> orderServiceLists = orderServiceMapper.selectByExample(example);
+    		if(null != orderServiceLists && !orderServiceLists.isEmpty()){
+    			first = true;
+    		}
+    		order = orderMapper.selectByPrimaryKey(params.getFk_order_id());
+    		if(null != order && !first){
+    			if(null != order.getOrderFreightAmount())
+    				freightAmount = order.getOrderFreightAmount();
+    		}
+    	}
+    	
+    	if(null != params.getFk_order_detail_id()){
+    		//商品级别的退款
+    		OrderDetail orderDetail = orderDetailMapper.selectByPrimaryKey(params.getFk_order_detail_id());
+    		if(null != orderDetail && null != orderDetail.getPaymentAmount()){
+    			BigDecimal paymentAmount = orderDetail.getPaymentAmount();
+        		maxRefundPrice = paymentAmount.add(freightAmount);
+    		}
+    	}else{
+    		//订单级别的退款
+    		if(null != order.getOrderPaymentAmount()){
+    			BigDecimal orderPaymentAmount = order.getOrderPaymentAmount();
+        		maxRefundPrice = orderPaymentAmount.add(freightAmount);
+    		}
+    	}
+    	return maxRefundPrice;
+    }
+    
+    //检查退款
+    public boolean checkRefundPrice(OrderServiceParams params){
+    	boolean check = true;
+    	BigDecimal refundPrice = new BigDecimal(params.getRefund_price());
+    	BigDecimal maxRefundPrice = this.getMaxRefundPrice(params);
+    	
+    	//maxRefundPrice必须大于或者等于refundPrice
+		if(maxRefundPrice.compareTo(refundPrice)<-1){
+			//TODO
+			check = false;
+		}
+		return check;
+    }
+    
+    /**
+     * 判断退款金额接口
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    public void checkPrice(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	if(null != params.getFk_order_id()){
+    		Order order = orderMapper.selectByPrimaryKey(params.getFk_order_id());
+    		if(null==order){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_NO_EXISTENCE);
+        		error.setErrorMessage("订单无效");
+        		return;
+    		}
+    	}
+    	
+    	if(null != params.getFk_order_detail_id()){
+    		OrderDetail orderDetail = orderDetailMapper.selectByPrimaryKey(params.getFk_order_detail_id());
+    		if(null == orderDetail){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_DETAIL_NO_EXISTENCE);
+        		error.setErrorMessage("订单详细无效");
+        		return;
+    		}
+    	}
+    	successResult.setIs_success(checkRefundPrice(params));
+    }
+
+    
+    public void update(OrderServiceParams params){
+    	
+    	String userName = getUserName(params);
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+    		record.setApplyName(userName);
+        	record.setApplyPhone(params.getApply_phone());
+        	record.setApplyTime(DateUtil.now());
+        	
+        	record.setDealType(params.getDeal_type());
+        	record.setDealTypeName(Constants.OrderServiceDealType.getValue(params.getDeal_type()).getValue());
+        	
+        	
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.等待商家处理退款申请.getValue());
+        	
+        	BigDecimal refundPrice = new BigDecimal(params.getRefund_price());
+        	record.setRefundPrice(refundPrice);
+        	
+        	record.setRefundReasonTypeId(params.getRefund_reason_type_id());
+        	record.setRefundReasonTypeName(Constants.OrderServiceRefundReason.getValue(params.getRefund_reason_type_id()).getValue());
+        	record.setRefundRemark(params.getApply_remark());
+        	
+        	record.setStartTime(DateUtil.now());
+        	record.setStateCode(Constants.OrderServiceStateCode.申请中.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.申请中.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待商家处理.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.等待商家处理.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	//售后单操作记录
+    		OrderServiceRecord recRecord = new OrderServiceRecord();
+    		recRecord.setApplyPhone(record.getApplyPhone());
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	recRecord.setDealType(record.getDealType());
+        	recRecord.setDealTypeName(record.getDealTypeName());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.修改了退款申请等待商家处理.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.修改退款申请.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.修改退款申请.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+        	
+        	recRecord.setRefundPrice(refundPrice);
+        	recRecord.setRefundReasonTypeName(record.getRefundReasonTypeName());
+        	recRecord.setRefundRemark(record.getRefundRemark());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+    		//
+    		if(null != params.getBuyer_express_pic_rsurl() && params.getBuyer_express_pic_rsurl().length>0){
+    			for(String rsurl:params.getBuyer_express_pic_rsurl()){
+	    			OrderServicePicture picRecord = new OrderServicePicture();
+	    	    	picRecord.setCreateTime(DateUtil.now());
+	    	    	picRecord.setFkServiceId(record.getId());
+	    	    	picRecord.setFkServiceRecordId(recRecord.getId());
+	    	    	picRecord.setOpType(Constants.OrderServiceRecordOpType.修改退款申请.getKey());
+	    	    	picRecord.setOpTypeName(Constants.OrderServiceRecordOpType.修改退款申请.getValue());
+	    	    	picRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+	    	    	picRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+	    	    	picRecord.setPicRsurl(rsurl);
+	    	    	
+	    	    	orderServicePictureMapper.insertSelective(picRecord);
+    			}
+    		}
+    	}
+    }
+    
+    /**
+     * 获取用户名
+     * @author 揭懿
+     * @param params
+     * @return
+     */
+    public String getUserName(OrderServiceParams params){
+    	String userName = null;
+    	if(null != params.getCurrent_user_id()){
+    		Member member = memberMapper.selectByPrimaryKey(params.getCurrent_user_id());
+        	if(null != member){
+        		userName = member.getRealName();
+        	}
+    	}
+    	return userName;
+    }
+    
+    /**
+     * 填写退货物流
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void setExpress(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	String buyerExpressCompanyName = null;
+    	if(null != orderService){
+    		
+    		if(null != orderService.getDealType() 
+    				&& orderService.getDealType().equals(Constants.OrderServiceDealType.我要退款但不退货.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_DEAL_TYPE_INVALID);
+        		error.setErrorMessage("售后单处理方式不正确");
+        		return;
+    		}
+    		
+    		if(null != orderService.getStateCode() 
+    				&& !orderService.getStateCode().equals(Constants.OrderServiceStateCode.处理中.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_STATE_INVALID);
+        		error.setErrorMessage("售后单状态不正确，正确状态是处理中");
+        		return;
+    		}
+    		
+    		if(null != orderService.getSubStateCode() 
+    				&& !orderService.getSubStateCode().equals(Constants.OrderServiceSubStateCode.等待买家处理.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_SUBSTATE_INVALID);
+        		error.setErrorMessage("售后单子状态不正确，正确状态是等待买家处理");
+        		return;
+    		}
+    		
+    		if(null != orderService.getServiceTips() 
+    				&& !orderService.getServiceTips().equals(Constants.OrderServiceTips.商家同意退货.getValue())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_TIPS_INVALID);
+        		error.setErrorMessage("售后单阶段不正确，正确阶段是商家同意退货");
+        		return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+    		record.setBuyerExpressBillNo(params.getBuyer_express_bill_no());
+        	record.setBuyerExpressCompanyId(params.getBuyer_express_company_id());
+        	
+        	ExpressCompany expressCompany = expressCompanyMapper.selectByPrimaryKey(params.getBuyer_express_company_id());
+        	if(null != expressCompany){
+        		buyerExpressCompanyName = expressCompany.getName();
+        	}else{
+        		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_EXPRESS_COMPANY_INVALID);
+        		error.setErrorMessage("物流方式无效");
+        		return;
+        	}
+        		
+        	record.setBuyerExpressCompanyName(buyerExpressCompanyName);
+        	record.setBuyerExpressTime(DateUtil.now());
+        	
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.等待商家确认收货.getValue());
+        	
+        	record.setServiceTips(Constants.OrderServiceTips.等待商家确认收货.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待商家处理.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.等待商家处理.getValue());
+        	
+    		orderServiceMapper.updateByPrimaryKeySelective(record);
+    		
+    		
+    		//售后单操作记录
+    		OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setBuyerExpressBillNo(params.getBuyer_express_bill_no());
+        	recRecord.setBuyerExpressCompanyId(params.getBuyer_express_company_id());
+        	recRecord.setBuyerExpressCompanyName(buyerExpressCompanyName);
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.已退货等待商家确认收货.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.填写退货物流信息.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.填写退货物流信息.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+        	
+        	
+        	recRecord.setReturnPhone(params.getReturn_phone());
+        	recRecord.setReturnRemark(params.getReturn_remark());
+    		
+        	orderServiceRecordMapper.insertSelective(recRecord);
+    		//
+    		if(null != params.getBuyer_express_pic_rsurl() && params.getBuyer_express_pic_rsurl().length>0){
+    			for(String rsurl:params.getBuyer_express_pic_rsurl()){
+    				OrderServicePicture picRecord = new OrderServicePicture();
+    		    	picRecord.setCreateTime(DateUtil.now());
+    		    	picRecord.setFkServiceId(record.getId());
+    		    	picRecord.setFkServiceRecordId(recRecord.getId());
+    		    	picRecord.setOpType(Constants.OrderServiceRecordOpType.填写退货物流信息.getKey());
+    		    	picRecord.setOpTypeName(Constants.OrderServiceRecordOpType.填写退货物流信息.getValue());
+    		    	picRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+    		    	picRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+    		    	picRecord.setPicRsurl(rsurl);
+    		    	
+    		    	orderServicePictureMapper.insertSelective(picRecord);
+    			}
+    		}
+    		
+    		successResult.setIs_success(true);
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    
+    private boolean checkApplyState(OrderService orderService,ErrorResult error){
+    	
+    	if(null != orderService.getStateCode() 
+				&& !orderService.getStateCode().equals(Constants.OrderServiceStateCode.申请中.getKey())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_STATE_INVALID);
+    		error.setErrorMessage("售后单状态不正确，正确状态是申请中");
+    		return true;
+		}
+		
+		if(null != orderService.getSubStateCode() 
+				&& !orderService.getSubStateCode().equals(Constants.OrderServiceSubStateCode.等待商家处理.getKey())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_SUBSTATE_INVALID);
+    		error.setErrorMessage("售后单子状态不正确，正确状态是等待商家处理");
+    		return true;
+		}
+		
+		return false;
+    }
+    
+    
+    /**
+     * 同意退款or同意退货
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void agree(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(this.checkApplyState(orderService, error)){
+    			return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+        	
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	//售后单操作记录
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.同意退款给买家.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.同意退款.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.同意退款.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.商家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.商家.getValue());
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setRefundPrice(orderService.getRefundPrice());
+        	
+        	if(orderService.getDealType().equals(Constants.OrderServiceDealType.我要退款但不退货.getKey())){
+        		this.agreeRefund(record, recRecord);
+        	}else if(orderService.getDealType().equals(Constants.OrderServiceDealType.我要退款并退货.getKey())){
+        		if(null == params.getReturn_address()){
+        			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.RETURN_ADDRESS_IS_NULL);
+            		error.setErrorMessage("退货地址不能为空");
+            		return;
+        		}
+        		
+        		this.agreeReturn(params, record, recRecord);
+        	}
+        	
+        	successResult.setIs_success(true);
+        	
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    /**
+     * 同意（我要退款但不退货）
+     * @author 揭懿
+     * @param record
+     * @param recRecord
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    private void agreeRefund(OrderService record,OrderServiceRecord recRecord){
+    	record.setEndTime(DateUtil.now());
+    	
+    	record.setStateCode(Constants.OrderServiceStateCode.已完成.getKey());
+    	record.setStateName(Constants.OrderServiceStateCode.已完成.getValue());
+    	record.setSubStateCode(Constants.OrderServiceSubStateCode.同意退款.getKey());
+    	record.setSubStateName(Constants.OrderServiceSubStateCode.同意退款.getValue());
+    	
+    	record.setMarkedWords(Constants.OrderServiceMarkedWords.退款成功.getValue());
+    	
+    	orderServiceMapper.updateByPrimaryKeySelective(record);
+    	
+    	orderServiceRecordMapper.insertSelective(recRecord);
+    }
+    
+    /**
+     * 同意（我要退款并退货）
+     * @author 揭懿
+     * @param params
+     * @param record
+     * @param recRecord
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    private void agreeReturn(OrderServiceParams params,OrderService record,OrderServiceRecord recRecord){
+    	record.setStateCode(Constants.OrderServiceStateCode.处理中.getKey());
+    	record.setStateName(Constants.OrderServiceStateCode.处理中.getValue());
+    	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待买家处理.getKey());
+    	record.setSubStateName(Constants.OrderServiceSubStateCode.等待买家处理.getValue());
+    	
+    	record.setMarkedWords(Constants.OrderServiceMarkedWords.商家已同意退款请退货给商家.getValue());
+    	record.setServiceTips(Constants.OrderServiceTips.商家同意退货.getValue());
+    	orderServiceMapper.updateByPrimaryKeySelective(record);
+    	
+    	recRecord.setReturnAddress(params.getReturn_address());
+    	orderServiceRecordMapper.insertSelective(recRecord);
+    }
+    
+    /**
+     * 拒绝售后
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void refuse(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	
+    	String userName = getUserName(params);
+    	
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(this.checkApplyState(orderService, error)){
+    			return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+    		record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+    		
+    		record.setSellerSupplierAcceptAdminId(params.getCurrent_user_id());
+        	record.setSellerSupplierAcceptAdminName(userName);
+        	record.setSellerSupplierAcceptTime(DateUtil.now());
+        	record.setSellerSupplierFeedbackResult(Constants.OrderServiceSellerSupplierFeedbackResult.拒绝.getKey());
+        	record.setSellerSupplierRefuseReason(params.getRefuse_reason());
+        	
+        	record.setStateCode(Constants.OrderServiceStateCode.处理中.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.处理中.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待买家处理.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.等待买家处理.getValue());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.商家拒绝退款给买家.getValue());
+    		record.setServiceTips(Constants.OrderServiceTips.商家拒绝.getValue());
+    		
+    		orderServiceMapper.updateByPrimaryKeySelective(record);
+    		
+    		//售后单操作记录
+    		OrderServiceRecord recRecord = new OrderServiceRecord();
+    		
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.商家拒绝退款给买家.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.拒绝退款.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.拒绝退款.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.商家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.商家.getValue());
+        	
+        	recRecord.setRefuseReason(params.getRefuse_reason());
+        	
+        	
+    		orderServiceRecordMapper.insertSelective(recRecord);
+    		
+    		successResult.setIs_success(true);
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    
+    private boolean checkDealState(OrderService orderService,ErrorResult error){
+    	
+    	if(null != orderService.getDealType() 
+				&& orderService.getDealType().equals(Constants.OrderServiceDealType.我要退款但不退货.getKey())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_DEAL_TYPE_INVALID);
+    		error.setErrorMessage("售后单处理方式不正确");
+    		return true;
+		}
+		
+		if(null != orderService.getStateCode() 
+				&& !orderService.getStateCode().equals(Constants.OrderServiceStateCode.处理中.getKey())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_STATE_INVALID);
+    		error.setErrorMessage("售后单状态不正确，正确状态是处理中");
+    		return true;
+		}
+		
+		if(null != orderService.getSubStateCode() 
+				&& !orderService.getSubStateCode().equals(Constants.OrderServiceSubStateCode.等待商家处理.getKey())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_SUBSTATE_INVALID);
+    		error.setErrorMessage("售后单子状态不正确，正确状态是等待商家处理");
+    		return true;
+		}
+		
+		if(null != orderService.getServiceTips() 
+				&& !orderService.getServiceTips().equals(Constants.OrderServiceTips.等待商家确认收货.getValue())){
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_TIPS_INVALID);
+    		error.setErrorMessage("售后单阶段不正确，正确阶段是等待商家确认收货");
+    		return true;
+		}
+		
+		return false;
+    }
+    
+    /**
+     * 确认收货并退款
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void confirmReceiving(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(this.checkDealState(orderService, error)){
+    			return;
+    		}
+    		
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+    		record.setEndTime(DateUtil.now());
+    		
+    		record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.退款成功.getValue());
+        	
+        	record.setSellerSupplierComfirmAdminId(params.getCurrent_user_id());
+        	record.setSellerSupplierComfirmAdminName(userName);
+        	record.setStateCode(Constants.OrderServiceStateCode.已完成.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.已完成.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.同意退款.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.同意退款.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	//
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.商家确认收货并退款.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.确认收货并退款.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.确认收货并退款.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.商家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.商家.getValue());
+        	
+        	recRecord.setRefundPrice(record.getRefundPrice());
+        	recRecord.setReturnAddress(record.getReturnAddress());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+        	
+        	successResult.setIs_success(true);
+        	
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    /**
+     * 拒绝确认收货
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void refuseReceiving(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(this.checkDealState(orderService, error)){
+    			return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.商家拒绝确认收货.getValue());
+        	
+        	record.setServiceTips(Constants.OrderServiceTips.商家拒绝.getValue());
+        	
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待买家处理.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.等待买家处理.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.商家拒绝确认收货.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.拒绝确认收货.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.拒绝确认收货.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.商家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.商家.getValue());
+        	
+        	recRecord.setRefundPrice(record.getRefundPrice());
+        	recRecord.setReturnAddress(record.getReturnAddress());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+        	
+        	successResult.setIs_success(true);
+        	
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    /**
+     * 申请平台客服介入
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+	@Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void consult(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(null != orderService.getStateCode() 
+    				&& !orderService.getStateCode().equals(Constants.OrderServiceStateCode.处理中.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_STATE_INVALID);
+        		error.setErrorMessage("售后单状态不正确，正确状态是处理中");
+        		return;
+    		}
+    		
+    		if(null != orderService.getSubStateCode() 
+    				&& !orderService.getSubStateCode().equals(Constants.OrderServiceSubStateCode.等待买家处理.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_SUBSTATE_INVALID);
+        		error.setErrorMessage("售后单子状态不正确，正确状态是等待买家处理");
+        		return;
+    		}
+    		
+    		if(null != orderService.getServiceTips() 
+    				&& !orderService.getServiceTips().equals(Constants.OrderServiceTips.商家拒绝.getValue())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_TIPS_INVALID);
+        		error.setErrorMessage("售后单阶段不正确，正确阶段是商家拒绝");
+        		return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.申请掌柜客服介入.getValue());
+        	record.setMediationBy(userName);
+        	
+        	record.setPlatformMediationState(Constants.OrderServicePlatformMediationState.申请中.getKey());
+        	
+        	
+        	record.setServiceTips(Constants.OrderServiceTips.等待平台客服介入.getValue());
+        	record.setStateCode(Constants.OrderServiceStateCode.平台客服介入协商中.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.平台客服介入协商中.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.平台客服介入.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.平台客服介入.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.申请掌柜客服介入.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.申请平台客服介入.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.申请平台客服介入.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+        	
+        	successResult.setIs_success(true);
+        	
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    /**
+     * 撤销平台客服介入
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+	@Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void cancelConsult(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(null != orderService.getStateCode() 
+    				&& !orderService.getStateCode().equals(Constants.OrderServiceStateCode.平台客服介入协商中.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_STATE_INVALID);
+        		error.setErrorMessage("售后单状态不正确，正确状态是平台客服介入协商中");
+        		return;
+    		}
+    		
+    		if(null != orderService.getSubStateCode() 
+    				&& !orderService.getSubStateCode().equals(Constants.OrderServiceSubStateCode.平台客服介入.getKey())){
+    			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_SUBSTATE_INVALID);
+        		error.setErrorMessage("售后单子状态不正确，正确状态是平台客服介入");
+        		return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    		
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.撤销客服介入.getValue());
+        	
+        	record.setStateCode(Constants.OrderServiceStateCode.申请中.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.申请中.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.等待商家处理.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.等待商家处理.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.撤销客服介入.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.撤销客服介入.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.撤销客服介入.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+        	
+        	successResult.setIs_success(true);
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+    
+    /**
+     * 关闭售后
+     * @author 揭懿
+     * @param params
+     * @param successResult
+     * @param error
+     */
+	@Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT)
+    public void close(OrderServiceParams params,SuccessResult successResult,ErrorResult error){
+    	String userName = getUserName(params);
+    	if(userName==null){
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.USER_NAME_INVALID);
+    		error.setErrorMessage("当前用户名无效");
+    		return;
+    	}
+    	
+    	OrderService orderService = orderServiceMapper.selectByPrimaryKey(params.getOrder_service_id());
+    	
+    	if(null != orderService){
+    		
+    		if(this.checkApplyState(orderService, error)){
+    			return;
+    		}
+    		
+    		OrderService record = new OrderService();
+    		record.setId(orderService.getId());
+    	
+        	record.setEndTime(DateUtil.now());
+        	
+        	record.setLastUpdateTime(DateUtil.now());
+        	record.setLastUpdateUserId(params.getCurrent_user_id());
+        	
+        	record.setMarkedWords(Constants.OrderServiceMarkedWords.买家关闭退款服务.getValue());
+        	
+        	record.setStateCode(Constants.OrderServiceStateCode.已关闭.getKey());
+        	record.setStateName(Constants.OrderServiceStateCode.已关闭.getValue());
+        	record.setSubStateCode(Constants.OrderServiceSubStateCode.售后撤销.getKey());
+        	record.setSubStateName(Constants.OrderServiceSubStateCode.售后撤销.getValue());
+        	
+        	orderServiceMapper.updateByPrimaryKeySelective(record);
+        	
+        	
+        	OrderServiceRecord recRecord = new OrderServiceRecord();
+        	recRecord.setCreateTime(DateUtil.now());
+        	recRecord.setCreateUserId(params.getCurrent_user_id());
+        	
+        	recRecord.setFkServiceId(record.getId());
+        	
+        	recRecord.setOpSign(Constants.OrderServiceOpSign.买家关闭退款服务.getValue());
+        	recRecord.setOpTime(DateUtil.now());
+        	recRecord.setOpType(Constants.OrderServiceRecordOpType.关闭申请退款.getKey());
+        	recRecord.setOpTypeName(Constants.OrderServiceRecordOpType.关闭申请退款.getValue());
+        	recRecord.setOpUserId(params.getCurrent_user_id());
+        	recRecord.setOpUserName(userName);
+        	recRecord.setOpUserType(Constants.OrderServiceOpUserType.买家.getKey());
+        	recRecord.setOpUserTypeName(Constants.OrderServiceOpUserType.买家.getValue());
+        	
+        	orderServiceRecordMapper.insertSelective(recRecord);
+        	
+        	successResult.setIs_success(true);
+    	}else{
+    		error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return;
+    	}
+    }
+	
+	/**
+	 * 获取售后单详情
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	public OrderServiceResult getOrderServiceResult(OrderServiceParams params,ErrorResult error){
+		OrderServiceResult result = new OrderServiceResult();
+		OrderServiceVo orderServiceVo = orderServiceDao.getOrderServiceVo(params.getOrder_service_id());
+		if(null != orderServiceVo){
+			BeanUtil.copyProperties(result, orderServiceVo);
+			
+			List<OrderServiceRecordResult> recordResults = new ArrayList<OrderServiceRecordResult>();
+			for(OrderServiceRecordVo recordVo:orderServiceVo.getRecordVos()){
+				
+				OrderServiceRecordResult recordResult = new OrderServiceRecordResult();
+				BeanUtil.copyProperties(recordResult, recordVo);
+				
+				
+				List<OrderServicePictureResult> picResults = new ArrayList<OrderServicePictureResult>();
+				for(OrderServicePictureVo picVo:recordVo.getPicVos()){
+					OrderServicePictureResult picResult = new OrderServicePictureResult();
+					BeanUtil.copyProperties(picResult, picVo);
+					picResults.add(picResult);
+				}
+				recordResult.setPicResults(picResults);
+				
+				recordResults.add(recordResult);
+			}
+			
+			result.setRecordResults(recordResults);
+			
+			OrderResult orderResult = new OrderResult();
+			if(null != orderServiceVo.getOrderVo()){
+				BeanUtil.copyProperties(orderResult, orderServiceVo.getOrderVo());
+			}
+			
+			result.setOrderResult(orderResult);
+			
+			
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderServiceErrorCode.ORDER_SERVICE_INVALID);
+    		error.setErrorMessage("售后单无效");
+    		return result;
+		}
+		return result;
+	}
+	
+	
+	/**
+	 * 售后单列表
+	 * @param page
+	 * @param params
+	 * @return
+	 */
+	public Page<OrderServiceResult> getOrderServiceLists(Page<OrderServiceResult> page, OrderServiceParams params){
+		
+		List<OrderServiceVo> serviceVos = orderServiceDao.getOrderServiceVoLists(new RowBounds(page.getFirst()-1, page.getPageSize()), params);
+		
+		List<OrderServiceResult> result = new ArrayList<OrderServiceResult>();
+		
+		for(OrderServiceVo serviceVo:serviceVos){
+			OrderServiceResult orderServiceResult = new OrderServiceResult();
+			BeanUtil.copyProperties(orderServiceResult, serviceVo);
+			result.add(orderServiceResult);
+		}
+		
+		Long count = orderServiceDao.countOrderServiceVoLists(params);
+		page.setResult(result);
+		page.setTotalCount(count);
+		return page;
+	}
+    
+    public void test(){
+    	/*record.setApplyName(applyName);
+    	record.setApplyPhone(applyPhone);
+    	record.setApplyTime(applyTime);
+    	
+    	record.setBillNo(billNo);
+    	record.setBuyerExpressBillNo(buyerExpressBillNo);
+    	record.setBuyerExpressCompanyId(buyerExpressCompanyId);
+    	record.setBuyerExpressCompanyName(buyerExpressCompanyName);
+    	record.setBuyerExpressTime(buyerExpressTime);
+    	record.setBuyerPhone(buyerPhone);
+    	
+    	record.setCreateTime(createTime);
+    	record.setCreateUserId(createUserId);
+    	
+    	record.setDealType(dealType);
+    	record.setDealTypeName(dealTypeName);
+    	
+    	record.setEndTime(endTime);
+    	
+    	record.setFkCouponId(fkCouponId);
+    	record.setFkCustomerId(fkCustomerId);
+    	record.setFkOrderDetailId(fkOrderDetailId);
+    	record.setFkOrderId(fkOrderId);
+    	record.setFkShopMemberId(fkShopMemberId);
+    	record.setFkShopStoreId(fkShopStoreId);
+    	record.setFkShopSupplierId(fkShopSupplierId);
+    	record.setFkSupplierId(fkSupplierId);
+    	record.setFkSupplierMemberId(fkSupplierMemberId);
+    	record.setFkSupplierStoreId(fkSupplierStoreId);
+    	record.setFkTradeId(fkTradeId);
+    	
+    	record.setId(id);
+    	record.setLastUpdateTime(lastUpdateTime);
+    	record.setLastUpdateUserId(lastUpdateUserId);
+    	
+    	record.setMarkedWords(markedWords);
+    	record.setMediationAdvice(mediationAdvice);
+    	record.setMediationBy(mediationBy);
+    	record.setMediationTime(mediationTime);
+    	
+    	record.setOrderType(orderType);
+    	record.setPlatformMediationState(platformMediationState);
+    	record.setProductLogoRsurl(productLogoRsurl);
+    	record.setProductName(productName);
+    	
+    	record.setRefundCount(refundCount);
+    	record.setRefundCouponAmount(refundCouponAmount);
+    	record.setRefundExpressPrice(refundExpressPrice);
+    	record.setRefundGoodsPrice(refundGoodsPrice);
+    	record.setRefundPrice(refundPrice);
+    	record.setRefundReasonTypeId(refundReasonTypeId);
+    	record.setRefundReasonTypeName(refundReasonTypeName);
+    	record.setRefundRemark(refundRemark);
+    	record.setReturnAddress(returnAddress);
+    	
+    	record.setSellerSupplierAcceptAdminId(sellerSupplierAcceptAdminId);
+    	record.setSellerSupplierAcceptAdminName(sellerSupplierAcceptAdminName);
+    	record.setSellerSupplierAcceptTime(sellerSupplierAcceptTime);
+    	record.setSellerSupplierComfirmAdminId(sellerSupplierComfirmAdminId);
+    	record.setSellerSupplierComfirmAdminName(sellerSupplierComfirmAdminName);
+    	record.setSellerSupplierFeedbackResult(sellerSupplierFeedbackResult);
+    	record.setSellerSupplierRefuseReason(sellerSupplierRefuseReason);
+    	record.setServiceTips(serviceTips);
+    	record.setShoperAgreeTime(shoperAgreeTime);
+    	record.setSkuPropertyValue(skuPropertyValue);
+    	record.setStartTime(startTime);
+    	record.setStateCode(stateCode);
+    	record.setStateName(stateName);
+    	record.setSubStateCode(subStateCode);
+    	record.setSubStateName(subStateName);*/
+    	
+    	
+    	
+    	
+    	/*OrderServicePicture picRecord = new OrderServicePicture();
+    	picRecord.setCreateTime(createTime);
+    	picRecord.setFkServiceId(fkServiceId);
+    	picRecord.setFkServiceRecordId(fkServiceRecordId);
+    	picRecord.setOpType(opType);
+    	picRecord.setOpTypeName(opTypeName);
+    	picRecord.setOpUserType(opUserType);
+    	picRecord.setOpUserTypeName(opUserTypeName);
+    	picRecord.setPicRsurl(picRsurl);*/
+    	
+    	
+    	/*OrderServiceRecord recRecord = new OrderServiceRecord();
+    	recRecord.setApplyPhone(params.getApply_phone());
+    	
+    	recRecord.setBuyerExpressBillNo(buyerExpressBillNo);
+    	recRecord.setBuyerExpressCompanyId(buyerExpressCompanyId);
+    	recRecord.setBuyerExpressCompanyName(buyerExpressCompanyName);
+    	
+    	recRecord.setCreateTime(DateUtil.now());
+    	recRecord.setCreateUserId(params.getCurrent_user_id());
+    	
+    	recRecord.setDealType(params.getDeal_type());
+    	recRecord.setDealType(Constants.OrderServiceDealType.getValue(params.getDeal_type()).getValue());
+    	
+    	recRecord.setFkServiceId(record.getId());
+    	
+    	recRecord.setOpSign(Constants.orderservice);
+    	recRecord.setOpTime(opTime);
+    	recRecord.setOpType(opType);
+    	recRecord.setOpTypeName(opTypeName);
+    	recRecord.setOpUserId(opUserId);
+    	recRecord.setOpUserName(opUserName);
+    	recRecord.setOpUserType(opUserType);
+    	recRecord.setOpUserTypeName(opUserTypeName);
+    	
+    	recRecord.setRefundPrice(refundPrice);
+    	recRecord.setRefundReasonTypeName(refundReasonTypeName);
+    	recRecord.setRefundRemark(refundRemark);
+    	recRecord.setRefuseReason(refuseReason);
+    	recRecord.setRemark(remark);
+    	recRecord.setReturnAddress(returnAddress);
+    	recRecord.setReturnPhone(returnPhone);
+    	recRecord.setReturnRemark(returnRemark);*/
+    }
+}

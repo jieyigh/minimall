@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderServiceDao">
+	<!-- Get -->
+	<resultMap type="com.jbh360.trade.vo.rs.OrderServiceVo" id="OrderServiceVoMap" extends="com.jbh360.trade.mapper.OrderServiceMapper.BaseResultMap">
+		<collection property="orderVo" select="getOrderVo" column="fk_order_id" ofType="com.jbh360.trade.vo.rs.OrderVo"></collection>
+		<collection property="recordVos" select="getOrderServiceRecordVos" column="id" ofType="com.jbh360.trade.vo.rs.OrderServiceRecordVo"></collection>
+	</resultMap>
+	
+	<!-- List -->
+	<resultMap type="com.jbh360.trade.vo.rs.OrderServiceVo" id="OrderServiceVoListMap" extends="com.jbh360.trade.mapper.OrderServiceMapper.BaseResultMap">
+		<result column="order_no" jdbcType="VARCHAR" property="orderNo" />
+		<result column="receiver_name" jdbcType="VARCHAR" property="receiverName" />
+    	<result column="receiver_mobile" jdbcType="VARCHAR" property="receiverMobile" />
+	</resultMap>
+	
+	
+	<resultMap type="com.jbh360.trade.vo.rs.OrderServiceRecordVo" id="OrderServiceRecordVoMap" extends="com.jbh360.trade.mapper.OrderServiceRecordMapper.BaseResultMap">
+		<collection property="picVos" select="getOrderServicePictureVos" column="id" ofType="com.jbh360.trade.vo.rs.OrderServicePictureVo"></collection>
+	</resultMap>
+	
+	<resultMap type="com.jbh360.trade.vo.rs.OrderServicePictureVo" id="OrderServicePictureVoMap" extends="com.jbh360.trade.mapper.OrderServicePictureMapper.BaseResultMap">
+	</resultMap>
+	
+	<resultMap type="com.jbh360.trade.vo.rs.OrderVo" id="OrderVoMap" extends="com.jbh360.trade.mapper.OrderMapper.BaseResultMap">
+	</resultMap>
+	
+	
+	
+	<select id="getOrderServiceVoLists" resultMap="OrderServiceVoListMap" parameterType="com.jbh360.trade.vo.param.OrderServiceParams">
+		SELECT a.*,b.*,c.* FROM tdo_order_service a 
+			LEFT JOIN tdo_order b ON a.fk_order_id=b.id 
+			LEFT JOIN tdo_order_receiver c ON c.fk_trade_id=b.fk_trade_id
+		
+		<trim prefix="WHERE" prefixOverrides="AND|OR">
+		
+			<if test="params.receiver_info != null and params.receiver_info != ''">
+	  		  and (a.product_name like '%${params.receiver_info}%' 
+	  		  	or a.apply_phone like '%${params.receiver_info}%'
+	  		  	or a.apply_name like '%${params.receiver_info}%'
+	  		  	or b.order_no like '%${params.receiver_info}%')
+			</if>
+		
+		
+			<if test="params.product_name != null and params.product_name != ''">
+	  		  and a.product_name like '%${params.product_name}%'
+			</if>
+			
+			<if test="params.state_code != null and params.state_code != ''">
+	  		  and a.state_code = #{params.state_code}
+			</if>
+			
+			<if test="params.name != null and params.name != ''">
+	  		  and a.apply_name like '%${params.name}%'
+			</if>
+			
+			<if test="params.phone_no != null and params.phone_no != ''">
+	  		  and a.apply_phone like '%${params.phone_no}%'
+			</if>
+			
+			<if test="params.order_service_state != null and params.order_service_state != ''">
+	  		  and b.service_state = #{params.order_service_state}
+			</if>
+				
+		</trim>
+		
+		ORDER BY a.create_time DESC
+	</select>
+	
+	
+	<select id="countOrderServiceVoLists" resultType="java.lang.Long" parameterType="com.jbh360.trade.vo.param.OrderServiceParams">
+		SELECT count(a.id) FROM tdo_order_service a 
+			LEFT JOIN tdo_order b ON a.fk_order_id=b.id 
+			LEFT JOIN tdo_order_receiver c ON c.fk_trade_id=b.fk_trade_id
+		
+		<trim prefix="WHERE" prefixOverrides="AND|OR">
+		
+			<if test="params.receiver_info != null and params.receiver_info != ''">
+	  		  and (a.product_name like '%${params.receiver_info}%' 
+	  		  	or a.apply_phone like '%${params.receiver_info}%'
+	  		  	or a.apply_name like '%${params.receiver_info}%'
+	  		  	or b.order_no like '%${params.receiver_info}%')
+			</if>
+		
+		
+			<if test="params.product_name != null and params.product_name != ''">
+	  		  and a.product_name like '%${params.product_name}%'
+			</if>
+			
+			<if test="params.state_code != null and params.state_code != ''">
+	  		  and a.state_code = #{params.state_code}
+			</if>
+			
+			<if test="params.name != null and params.name != ''">
+	  		  and a.apply_name like '%${params.name}%'
+			</if>
+			
+			<if test="params.phone_no != null and params.phone_no != ''">
+	  		  and a.apply_phone like '%${params.phone_no}%'
+			</if>
+			
+			<if test="params.order_service_state != null and params.order_service_state != ''">
+	  		  and b.service_state = #{params.order_service_state}
+			</if>
+				
+		</trim>
+	</select>
+	
+	
+	<select id="getOrderServiceVo" parameterType="com.jbh360.trade.vo.param.OrderServiceParams" resultMap="OrderServiceVoMap">
+    	 SELECT a.* FROM tdo_order_service a 
+    	 
+    	 <trim prefix="WHERE" prefixOverrides="AND|OR">
+    	 
+    	 	<if test="params.order_service_id != null and params.order_service_id != ''">
+	  		  and a.id = #{params.order_service_id}
+			</if>
+			
+			<if test="params.fk_order_detail_id != null and params.fk_order_detail_id != ''">
+	  		  and a.fk_order_detail_id = #{params.fk_order_detail_id}
+			</if>
+			
+    	 </trim>
+    </select>
+
+	
+	<select id="getOrderServiceRecordVos" parameterType="java.lang.Long" resultMap="OrderServiceRecordVoMap">
+    	 SELECT a.* FROM tdo_order_service_record a where a.fk_service_id = #{id}
+    </select>
+    
+    <select id="getOrderServicePictureVos" parameterType="java.lang.Long" resultMap="OrderServicePictureVoMap">
+    	 SELECT a.* FROM tdo_order_service_picture a where a.fk_service_record_id = #{id}
+    </select>
+    
+    <select id="getOrderVo" parameterType="java.lang.Long" resultMap="OrderVoMap">
+    	 SELECT a.* FROM tdo_order a where a.id = #{id}
+    </select>
+    
+    
+</mapper>

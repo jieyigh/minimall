@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderListDao">
+	<resultMap id="BaseResultMap" type="com.jbh360.trade.vo.StoreOrderResult" >
+  	<id column="id" jdbcType="BIGINT" property="order_id" />
+    <result column="order_no" jdbcType="VARCHAR" property="order_no" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="order_time" />
+    <result column="state_code" jdbcType="VARCHAR" property="state_code" />
+    <result column="state_name" jdbcType="VARCHAR" property="state_name" />
+    <result column="order_type" jdbcType="SMALLINT" property="order_type" />
+    <result column="fk_game_id" jdbcType="BIGINT" property="game_id" />
+    <result column="game_name" jdbcType="VARCHAR" property="game_name" />
+    <result column="fk_coupon_id" jdbcType="BIGINT" property="conpon_id" />
+    <result column="coupon_name" jdbcType="VARCHAR" property="conpon_name" />
+    <result column="trade_logo_rsurl" jdbcType="VARCHAR" property="trade_logo_rsurl" />
+    <result column="receiver_name" jdbcType="VARCHAR" property="receiver_name" />
+    <result column="receiver_mobile" jdbcType="VARCHAR" property="receiver_mobile" />
+    <result column="buy_count" jdbcType="INTEGER" property="buy_count" />
+  </resultMap>
+
+    <resultMap id="UcOrderResultMap" type="com.jbh360.trade.vo.UcOrderResult" >
+  	<id column="id" jdbcType="BIGINT" property="order_id" />
+    <result column="order_no" jdbcType="VARCHAR" property="order_no" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="order_time" />
+    <result column="state_code" jdbcType="VARCHAR" property="state_code" />
+    <result column="state_name" jdbcType="VARCHAR" property="state_name" />
+    <result column="order_payment_amount" jdbcType="DECIMAL" property="payment_amount" />
+    <result column="order_freight_amount" jdbcType="DECIMAL" property="order_freight_amount" />
+    <collection property="good_lists" select="getProductByOrderid" column="id" ofType="com.jbh360.trade.vo.UcOrderGoodResult"></collection>
+  </resultMap>
+  
+  <resultMap id="ProductResultMap" type="com.jbh360.trade.vo.UcOrderGoodResult" >
+    <result column="product_name" jdbcType="VARCHAR" property="goods_name" />
+    <result column="product_logo_rsurl" jdbcType="VARCHAR" property="product_logo_rsurl" />
+    <result column="sku_property_value" jdbcType="VARCHAR" property="sku_property_value" />
+    <result column="sale_unit_price" jdbcType="DECIMAL" property="sale_unit_price" />
+    <result column="buy_count" jdbcType="INTEGER" property="buy_count" />
+    <result column="service_state" jdbcType="SMALLINT" property="service_state" />
+  </resultMap>
+  
+  <resultMap id="OrderResultMap" type="com.jbh360.trade.vo.OrderResult" >
+    <id column="id" jdbcType="BIGINT" property="order_id" />
+    <result column="order_no" jdbcType="VARCHAR" property="order_no" />
+    <result column="state_code" jdbcType="VARCHAR" property="state_code" />
+    <result column="state_name" jdbcType="VARCHAR" property="state_name" />
+    <result column="order_type" jdbcType="SMALLINT" property="order_type" />
+    <result column="fk_seller_store_id" jdbcType="BIGINT" property="seller_store_id" />
+    <result column="seller_store_name" jdbcType="VARCHAR" property="seller_store_name" />
+    <result column="order_goods_total_amount" jdbcType="DECIMAL" property="order_goods_total_amount" />
+    <result column="order_payment_amount" jdbcType="DECIMAL" property="payment_amount" />
+    <result column="order_discount_total_amount" jdbcType="DECIMAL" property="discount_amount" />
+    <result column="order_freight_amount" jdbcType="DECIMAL" property="order_freight_amount" />
+    <result column="start_time" jdbcType="TIMESTAMP" property="start_time" />
+    <result column="pay_time" jdbcType="TIMESTAMP" property="pay_time" />
+    <result column="last_sign_time" jdbcType="TIMESTAMP" property="last_sign_time" />
+    <result column="buyer_remark" jdbcType="VARCHAR" property="buyer_remark" />
+    <collection property="pickup_info" select="getPickupByOrderid" column="id" ofType="com.jbh360.trade.vo.OrderPickupResult"></collection>
+    <collection property="good_lists" select="getProductByOrderid" column="id" ofType="com.jbh360.trade.vo.UcOrderGoodResult"></collection>
+  </resultMap>
+  
+  <resultMap id="PickupResultMap" type="com.jbh360.trade.vo.OrderPickupResult" >
+    <result column="receiver_name" jdbcType="VARCHAR" property="receiver_name" />
+    <result column="receiver_mobile" jdbcType="VARCHAR" property="receiver_mobile" />
+    <result column="receiver_address" jdbcType="VARCHAR" property="receiver_address" />
+    <result column="pickupplace_phone_number" jdbcType="VARCHAR" property="pickupplace_phone_number" />
+    <result column="pickupplace_contact_name" jdbcType="VARCHAR" property="pickupplace_contact_name" />
+    <result column="pickupplace_business_time" jdbcType="VARCHAR" property="pickpuplace_business_time" />
+  </resultMap>
+  
+	<select id="getStoreOrderList" resultMap="BaseResultMap">
+	select a.id, a.order_no, a.create_time, a.state_code, a.state_name, a.order_type, a.fk_game_id, a.fk_coupon_id, 
+	b.game_name, c.coupon_name, e.receiver_name, e.receiver_mobile,
+	(select f.product_logo_rsurl from tdo_order_detail f where f.fk_order_id = a.id limit 1) as trade_logo_rsurl,
+	(select count(g.buy_count) from tdo_order_detail g where g.fk_order_id = a.id) as buy_count
+	
+	from tdo_order a 
+	join gds_product_game b on b.id = a.fk_game_id
+	join store_coupon c on c.id = a.fk_coupon_id
+	join tdo_order_detail d on a.id = d.fk_order_id 
+	join tdo_order_receiver e on e.fk_order_id = a.id
+	where 1
+	<if test="param.key_word != null and param.key_word != ''" >
+        and (e.receiver_name like '%${param.key_word}%' or e.receiver_mobile like '%${param.key_word}%' or a.order_no like '%${param.key_word}%' or d.product_name like '%${param.key_word}%')
+    </if>
+    <if test="param.order_type != null">
+        and a.order_type = #{param.order_type}
+    </if>
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.order_type != null and param.order_type == 1 and param.member_id != null">
+        and a.fk_buye_store_member_id = #{param.member_id}
+    </if>
+    <if test="param.order_type != null and (param.order_type == 3 or param.order_type == 2) and param.store_id != null">
+        and a.fk_buyer_store_id = #{param.store_id}
+    </if>
+    order by a.create_time desc
+  </select>
+  
+  <select id="countStoreOrderList" resultType="java.lang.Long">
+	select count(a.id)
+	from tdo_order a 
+	join gds_product_game b on b.id = a.fk_game_id
+	join store_coupon c on c.id = a.fk_coupon_id
+	join tdo_order_detail d on a.id = d.fk_order_id 
+	join tdo_order_receiver e on e.fk_order_id = a.id
+	where 1
+	<if test="param.key_word != null and param.key_word != ''" >
+        and (e.receiver_name like '%${param.key_word}%' or e.receiver_mobile like '%${param.key_word}%' or a.order_no like '%${param.key_word}%' or d.product_name like '%${param.key_word}%')
+    </if>
+    <if test="param.order_type != null">
+        and a.order_type = #{param.order_type}
+    </if>
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.order_type != null and param.order_type == 1 and param.member_id != null">
+        and a.fk_buye_store_member_id = #{param.member_id}
+    </if>
+    <if test="param.order_type != null and (param.order_type == 3 or param.order_type == 2) and param.store_id != null">
+        and a.fk_buyer_store_id = #{param.store_id}
+    </if>
+  </select>
+  
+  <select id="getUcOrderList" resultMap="UcOrderResultMap">
+	select a.id, a.order_no, a.create_time, a.state_code, a.state_name, a.order_payment_amount, a.order_freight_amount
+	from tdo_order a 
+	where 1
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.member_id != null">
+        and a.fk_custome_member_id = #{param.member_id}
+    </if>
+    order by a.create_time desc
+  </select>
+  
+   <select id="getProductByOrderid" resultMap="ProductResultMap">
+	select a.product_name, a.product_logo_rsurl, a.sku_property_value, a.sale_unit_price, a.buy_count, a.service_state
+	from tdo_order_detail a 
+	where a.fk_order_id = #{id}
+    order by a.create_time desc
+  </select>
+  
+   <select id="countUcOrderList" resultType="java.lang.Long">
+	select count(a.id)
+	from tdo_order a 
+	where 1
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.member_id != null">
+        and a.fk_custome_member_id = #{param.member_id}
+    </if>
+  </select>
+  
+  <select id="getOrder" resultMap="OrderResultMap">
+	select a.id, a.order_no, a.state_code, a.state_name, a.order_type, a.fk_seller_store_id, a.seller_store_name, 
+	a.order_goods_total_amount, a.order_payment_amount, a.order_discount_total_amount, a.order_freight_amount,
+	a.start_time, a.last_sign_time, b.pay_time, a.buyer_remark
+	
+	from tdo_order a 
+	join tdo_trade b on a.fk_trade_id = b.id
+	where a.id = #{id}
+  </select>
+  
+  <select id="getPickupByOrderid" resultMap="PickupResultMap">
+	select a.receiver_name, a.receiver_mobile, a.receiver_address, 
+	a.pickupplace_phone_number, a.pickupplace_contact_name, a.pickupplace_business_time
+	
+	from tdo_order_receiver a 
+	where a.fk_order_id = #{id}
+  </select>
+</mapper>

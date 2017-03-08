@@ -1,0 +1,188 @@
+package com.jbh360.trade.vo.rs;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.xml.bind.annotation.XmlElement;
+
+public class OrderExpressResult {
+
+	private Long id;
+	
+	private Long fkTradeId;
+	
+ 	private Long fkOrderId;
+ 	
+	private String name;
+	
+	private BigDecimal freightPrice;
+
+	private Long totalProductCount;
+
+	private Date expressTime;
+
+	private Long expressCompanyId;
+
+	private String expressCompanyName;
+	
+	private String expressBillNo;
+	
+	private String courierName;
+	
+	private String courierPhone;
+	
+	private Date signTime;
+	
+	private Short state;
+	
+	private Date createTime;
+	
+	private Date lastUpdateTime;
+
+	@XmlElement(name = "id")
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	@XmlElement(name = "fk_trade_id")
+	public Long getFkTradeId() {
+		return fkTradeId;
+	}
+
+	public void setFkTradeId(Long fkTradeId) {
+		this.fkTradeId = fkTradeId;
+	}
+
+	@XmlElement(name = "fk_order_id")
+	public Long getFkOrderId() {
+		return fkOrderId;
+	}
+
+	public void setFkOrderId(Long fkOrderId) {
+		this.fkOrderId = fkOrderId;
+	}
+
+	@XmlElement(name = "name")
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	@XmlElement(name = "freight_price")
+	public BigDecimal getFreightPrice() {
+		return freightPrice;
+	}
+
+	public void setFreightPrice(BigDecimal freightPrice) {
+		this.freightPrice = freightPrice;
+	}
+
+	@XmlElement(name = "total_product_count")
+	public Long getTotalProductCount() {
+		return totalProductCount;
+	}
+
+	public void setTotalProductCount(Long totalProductCount) {
+		this.totalProductCount = totalProductCount;
+	}
+
+	@XmlElement(name = "express_time")
+	public Date getExpressTime() {
+		return expressTime;
+	}
+
+	public void setExpressTime(Date expressTime) {
+		this.expressTime = expressTime;
+	}
+
+	@XmlElement(name = "express_company_id")
+	public Long getExpressCompanyId() {
+		return expressCompanyId;
+	}
+
+	public void setExpressCompanyId(Long expressCompanyId) {
+		this.expressCompanyId = expressCompanyId;
+	}
+
+	@XmlElement(name = "express_company_name")
+	public String getExpressCompanyName() {
+		return expressCompanyName;
+	}
+
+	public void setExpressCompanyName(String expressCompanyName) {
+		this.expressCompanyName = expressCompanyName;
+	}
+
+	@XmlElement(name = "express_bill_no")
+	public String getExpressBillNo() {
+		return expressBillNo;
+	}
+
+	public void setExpressBillNo(String expressBillNo) {
+		this.expressBillNo = expressBillNo;
+	}
+
+	@XmlElement(name = "courier_name")
+	public String getCourierName() {
+		return courierName;
+	}
+
+	public void setCourierName(String courierName) {
+		this.courierName = courierName;
+	}
+
+	@XmlElement(name = "courier_phone")
+	public String getCourierPhone() {
+		return courierPhone;
+	}
+
+	public void setCourierPhone(String courierPhone) {
+		this.courierPhone = courierPhone;
+	}
+
+	@XmlElement(name = "sign_time")
+	public Date getSignTime() {
+		return signTime;
+	}
+
+	public void setSignTime(Date signTime) {
+		this.signTime = signTime;
+	}
+
+	@XmlElement(name = "state")
+	public Short getState() {
+		return state;
+	}
+
+	public void setState(Short state) {
+		this.state = state;
+	}
+
+	@XmlElement(name = "create_time")
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	@XmlElement(name = "last_update_time")
+	public Date getLastUpdateTime() {
+		return lastUpdateTime;
+	}
+
+	public void setLastUpdateTime(Date lastUpdateTime) {
+		this.lastUpdateTime = lastUpdateTime;
+	}
+	
+	
+	
+}

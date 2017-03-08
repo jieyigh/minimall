@@ -1,0 +1,26 @@
+#Created by JInto - www.guh-software.de
+#Tue Mar 19 15:44:46 CST 2013
+
+NotEmpty.outerRouterParam.method=method\u4E0D\u80FD\u4E3A\u7A7A
+NotNull.outerRouterParam.timestamp=\u65F6\u95F4\u6233\u4E0D\u80FD\u4E3A\u7A7A
+NotEmpty.outerRouterParam.app_key=app_key\u4E0D\u80FD\u4E3A\u7A7A
+NotEmpty.outerRouterParam.sign=sign\u4E0D\u80FD\u4E3A\u7A7A
+
+NotEmpty.innerRouterParam.method=method\u4E0D\u80FD\u4E3A\u7A7A
+NotEmpty.innerRouterParam.app_key=app_key\u4E0D\u80FD\u4E3A\u7A7A
+
+NotEmpty.universityRouterParam.method=method\u4E0D\u80FD\u4E3A\u7A7A
+
+system_error=\u7CFB\u7EDF\u5F02\u5E38
+api_router_app_key_no_register=app_key\u672A\u6CE8\u518C
+api_router_method_no_existence=method\={0}\uFF0C\u6B64\u63A5\u53E3\u4E0D\u5B58\u5728
+api_router_sign_error=\u7B7E\u540D\u9A8C\u8BC1\u5931\u8D25
+api_router_access_token_no_existence=access_token\u4E0D\u5B58\u5728
+api_router_access_token_have_logout=access_token\u5DF2\u88AB\u6CE8\u9500
+api_router_access_token_overtime=\u767B\u5F55\u8D85\u65F6\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55\uFF01
+api_router_timstamp_over_time=\u65F6\u95F4\u6233\u5DF2\u8D85\u8FC710\u5206\u949F
+
+NotEmpty.erpRouterParam.method=method\u4E0D\u80FD\u4E3A\u7A7A
+NotBlank.erpRouterParam.timestamp=\u65F6\u95F4\u6233\u4E0D\u80FD\u4E3A\u7A7A
+NotBlank.erpRouterParam.app_key=app_key\u4E0D\u80FD\u4E3A\u7A7A
+NotBlank.erpRouterParam.sign=sign\u4E0D\u80FD\u4E3A\u7A7A

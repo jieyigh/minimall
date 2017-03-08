@@ -1,0 +1,292 @@
+package com.jbh360.trade.service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+
+import javax.annotation.Resource;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
+
+import org.apache.ibatis.session.RowBounds;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+
+import com.jbh360.api.sdk.ApiInnerClient;
+import com.jbh360.api.sdk.system.request.MinimallSmpExpressComputeRequest;
+import com.jbh360.api.sdk.system.response.MinimallSmpExpressComputeResponse;
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.BeanUtil;
+import com.jbh360.common.utils.Constants;
+import com.jbh360.common.utils.Page;
+import com.jbh360.goods.entity.Product;
+import com.jbh360.goods.mapper.ProductMapper;
+import com.jbh360.system.entity.ExpressTemplate;
+import com.jbh360.system.mapper.ExpressTemplateMapper;
+import com.jbh360.trade.dao.OrderExpressDao;
+import com.jbh360.trade.entity.OrderExpress;
+import com.jbh360.trade.entity.OrderExpressDetail;
+import com.jbh360.trade.entity.OrderExpressDetailExample;
+import com.jbh360.trade.entity.OrderExpressExample;
+import com.jbh360.trade.entity.OrderExpressFollow;
+import com.jbh360.trade.entity.OrderExpressFollowExample;
+import com.jbh360.trade.mapper.OrderExpressDetailMapper;
+import com.jbh360.trade.mapper.OrderExpressFollowMapper;
+import com.jbh360.trade.mapper.OrderExpressMapper;
+import com.jbh360.trade.vo.param.ExpressComputeProduct;
+import com.jbh360.trade.vo.param.ExpressComputeProduct.ExpressComputeProductViolate;
+import com.jbh360.trade.vo.param.OrderExpressParams;
+import com.jbh360.trade.vo.rs.OrderExpressDetailResult;
+import com.jbh360.trade.vo.rs.OrderExpressFollowResult;
+import com.jbh360.trade.vo.rs.OrderExpressResult;
+import com.jbh360.trade.vo.rs.OrderExpressVo;
+
+/**
+ * 
+ * @Title: OrderExpressServiceImpl.java
+ * @Package com.jbh360.trade.service
+ * @ClassName: OrderExpressServiceImpl
+ * @Description: 物流信息
+ * @author 揭懿
+ * @email yi.jie@yooyo.com
+ * @date 2015年10月31日 下午3:44:26
+ * @version V3.0
+ */
+@Service
+public class OrderExpressServiceImpl {
+	
+	@Autowired
+	private OrderExpressMapper orderExpressMapper;
+	
+	@Autowired
+	private OrderExpressDetailMapper orderExpressDetailMapper;
+	
+	@Autowired
+	private OrderExpressFollowMapper orderExpressFollowMapper;
+	
+	
+	@Autowired
+	private OrderExpressDao orderExpressDao;
+	
+	
+	@Resource(name = "siteConfig")
+	private Properties siteConfig;
+	
+	@Resource
+	private ApiInnerClient apiInnerClient;
+	
+	@Autowired
+	private ProductMapper productMapper;
+	
+	private Validator validator;
+	
+	
+	@Autowired
+	private ExpressTemplateMapper expressTemplateMapper;
+	
+	
+	
+	public OrderExpressServiceImpl(){
+		ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory();
+		validator = validatorFactory.getValidator();
+	}
+	
+	public void addViolation(BindingResult bindingResult,Set<ConstraintViolation<ExpressComputeProduct>> violations){
+		for(ConstraintViolation<ExpressComputeProduct> violation:violations){
+			String propertyPath = violation.getPropertyPath().toString();
+			String message = violation.getMessage();
+			bindingResult.addError(new FieldError("ExpressComputeProduct", propertyPath, message));
+		}
+	}
+	
+	public void computeExpressProduct(ExpressComputeProduct params,BindingResult bindingResult){
+		Set<ConstraintViolation<ExpressComputeProduct>> violations = validator.validate(params,ExpressComputeProductViolate.class);
+		addViolation(bindingResult,violations);
+	}
+	
+	/**
+	 * 
+	 * @Title: computeExpress
+	 * @Description: 结合总价算运费
+	 * @date 2015年10月31日 下午5:15:53
+	 * @author 揭懿
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	public BigDecimal computeExpress(OrderExpressParams params){
+		
+		BigDecimal express_amount = new BigDecimal(0);
+		List<ExpressComputeProduct> computeProducts = params.getCompute_products();
+		
+		//String expressFree = this.siteConfig.getProperty("express.free");
+		//BigDecimal expressFreeDec = new BigDecimal(expressFree);
+		BigDecimal totalPrice = new BigDecimal(params.getTotal_price());
+		
+		boolean isFreightFree = false;
+		
+		/*if(expressFreeDec.compareTo(totalPrice) <= 0){
+			isFreightFree = true;
+		}*/
+		
+		if(!isFreightFree){
+			for(ExpressComputeProduct computeProduct:computeProducts){
+				
+				Product product = productMapper.selectByPrimaryKey(computeProduct.getProduct_id());
+				
+				if(null != product){
+					Long freightTempId = product.getFreightTempId();
+					String total_volume = "0.00";
+					ExpressTemplate expressTemplate = expressTemplateMapper.selectByPrimaryKey(freightTempId); 
+					
+					if(null != expressTemplate && null != expressTemplate.getPriceMode() ){
+						if(expressTemplate.getPriceMode().equals(Constants.ExpressTemplatePriceMode.按件计价.getKey())){
+							//按件计算
+							total_volume = computeProduct.getBuy_count();
+						}else if(expressTemplate.getPriceMode().equals(Constants.ExpressTemplatePriceMode.按重量计价.getKey())){
+							//按重量计算
+							if(null != product.getWeight())
+							total_volume = product.getWeight().multiply(new BigDecimal(computeProduct.getBuy_count())).toString();
+						}
+					}
+					express_amount.add(this.toCompute(params.getCity_ccode(), total_volume, freightTempId));
+				}
+			}
+		}
+		return express_amount;
+	}
+	
+	/**
+	 * 
+	 * @Title: toCompute
+	 * @Description: SDK计算运费
+	 * @date 2015年10月31日 下午4:25:42
+	 * @author 揭懿
+	 * @param city_ccode
+	 * @param total_volume
+	 * @param express_template_id
+	 * @return
+	 */
+	private BigDecimal toCompute(String city_ccode,String total_volume,Long express_template_id){
+		MinimallSmpExpressComputeRequest request = new MinimallSmpExpressComputeRequest();
+		
+		BigDecimal express_amount = new BigDecimal(0);
+		
+		request.setCity_ccode(city_ccode);
+		
+		request.setTotal_volume(total_volume);
+		
+		request.setExpress_template_id(express_template_id);
+		
+		MinimallSmpExpressComputeResponse response = apiInnerClient.execute(request);
+		
+		if(null != response && response.isSuccess()){
+			if(null != response.getExpress_amount())
+				express_amount = new BigDecimal(response.getExpress_amount());
+		}
+		return express_amount;
+		
+	}
+	
+	/**
+	 * 物流信息列表
+	 * @param page
+	 * @param params
+	 * @return
+	 */
+	public Page<OrderExpressResult> getOrderExpressResults(Page<OrderExpressResult> page, OrderExpressParams params){
+		
+		List<OrderExpressVo> expressVos = orderExpressDao.getOrderExpressVoLists(new RowBounds(page.getFirst()-1, page.getPageSize()), params);
+		
+		List<OrderExpressResult> result = new ArrayList<OrderExpressResult>();
+		
+		for(OrderExpressVo expressVo:expressVos){
+			OrderExpressResult orderExpressResult = new OrderExpressResult();
+			BeanUtil.copyProperties(orderExpressResult, expressVo);
+			result.add(orderExpressResult);
+		}
+		
+		Long count = orderExpressDao.countOrderExpressVoLists(params);
+		page.setResult(result);
+		page.setTotalCount(count);
+		return page;
+	}
+	
+	/**
+	 * 查看物流包裹信息
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	public OrderExpressResult getOrderExpressResult(OrderExpressParams params,ErrorResult error){
+		OrderExpressResult orderExpressResult = new OrderExpressResult();
+		
+		OrderExpress orderExpress = null;
+		
+		if(null != params.getOrder_express_id()){
+			orderExpress = orderExpressMapper.selectByPrimaryKey(params.getOrder_express_id());
+		}else if(null != params.getExpress_bill_no()){
+			
+			OrderExpressExample expressexample = new OrderExpressExample();
+			OrderExpressExample.Criteria expressCriteria = expressexample.createCriteria();
+			expressCriteria.andExpressBillNoEqualTo(params.getExpress_bill_no());
+			List<OrderExpress> orderExpresses = orderExpressMapper.selectByExample(expressexample);
+			
+			if(null != orderExpresses && !orderExpresses.isEmpty()){
+				orderExpress = orderExpresses.get(0);
+			}
+		}
+		
+		
+		
+		if(null != orderExpress){
+			BeanUtil.copyProperties(orderExpressResult, orderExpress);
+			
+			
+			List<OrderExpressDetailResult> detailResults = new ArrayList<OrderExpressDetailResult>();
+			List<OrderExpressFollowResult> followResults = new ArrayList<OrderExpressFollowResult>();
+			
+			OrderExpressDetailExample example = new OrderExpressDetailExample();
+			OrderExpressDetailExample.Criteria criteria = example.createCriteria();
+			criteria.andFkOrderExpressIdEqualTo(orderExpress.getId());
+			List<OrderExpressDetail> expressDetails = orderExpressDetailMapper.selectByExample(example);
+			for(OrderExpressDetail detail:expressDetails){
+				OrderExpressDetailResult detailResult = new OrderExpressDetailResult();
+				BeanUtil.copyProperties(detailResult, detail);
+				detailResults.add(detailResult);
+			}
+			
+			OrderExpressFollowExample followexample = new OrderExpressFollowExample();
+			OrderExpressFollowExample.Criteria followcriteria = followexample.createCriteria();
+			followcriteria.andFkOrderExpressIdEqualTo(orderExpress.getId());
+			List<OrderExpressFollow> expressfollows = orderExpressFollowMapper.selectByExample(followexample);
+			for(OrderExpressFollow follow:expressfollows){
+				OrderExpressFollowResult followResult = new OrderExpressFollowResult();
+				BeanUtil.copyProperties(followResult, follow);
+				followResults.add(followResult);
+			}
+			
+			orderExpressResult.setDetailResults(detailResults);
+			orderExpressResult.setFollowResults(followResults);
+			
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderErrorCode.ORDER_EXPRESS_NO_EXISTENCE);
+    		error.setErrorMessage("物流发货包裹无效");
+    		return null;
+		}
+		
+		return orderExpressResult;
+	}
+	
+	
+	
+	
+
+}

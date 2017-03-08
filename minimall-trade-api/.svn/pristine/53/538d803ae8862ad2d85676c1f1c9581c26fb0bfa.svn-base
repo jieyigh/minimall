@@ -1,0 +1,17 @@
+package com.jbh360.trade.vo;
+
+import javax.validation.constraints.NotNull;
+
+public class OrderPreSplitParams {
+	@NotNull(message="订单order_id不能为空")
+	private Long order_id;
+
+	public Long getOrder_id() {
+		return order_id;
+	}
+
+	public void setOrder_id(Long order_id) {
+		this.order_id = order_id;
+	}
+	
+}

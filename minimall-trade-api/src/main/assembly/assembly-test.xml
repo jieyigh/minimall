@@ -1,0 +1,56 @@
+<assembly	xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
+	<id>test</id>
+	<!-- 发布环境打包 -->
+	<formats>
+		<format>tar.gz</format>
+	</formats>
+	
+	<fileSets>
+		<fileSet>
+			<directory>src/main/resources</directory><!-- 这里你也可以写绝对路径 -->
+			<excludes>
+				<!-- 忽略这些已经存在release中的文件否则conf就不能替换了 -->
+				<exclude>com/**</exclude>
+				<exclude>jdbc.properties</exclude>
+				<exclude>applicationContext.xml</exclude>
+				<exclude>component.properties</exclude>
+				<exclude>sdkConfig.properties</exclude>
+				<exclude>siteConfig-base.properties</exclude>
+				<exclude>log4j.properties</exclude>
+			</excludes>
+			<outputDirectory>WEB-INF/classes</outputDirectory>
+		</fileSet>
+		<fileSet>
+			<directory>src/main/conf/test</directory>
+			<excludes>
+				<!-- 不需要的文件 -->
+			</excludes>
+			<outputDirectory>WEB-INF/classes</outputDirectory>
+		</fileSet>
+		<fileSet>
+			<directory>src/main/webapp</directory>
+			<outputDirectory>/</outputDirectory>
+		</fileSet>
+		<fileSet>
+			<directory>target</directory>
+			<outputDirectory>WEB-INF/lib</outputDirectory>
+			<includes>
+				<include>*SNAPSHOT.jar</include>
+			</includes>
+		</fileSet>
+	</fileSets>
+	
+	<!-- jar包打出 -->
+	<dependencySets>
+		<dependencySet>
+			<useProjectArtifact>false</useProjectArtifact>
+			<outputDirectory>WEB-INF/lib</outputDirectory>
+			<excludes>
+				<exclude>*:war</exclude><!-- 忽略war包 否则你会发现压缩包中多了个war包 真是不智能 -->
+			</excludes>
+			<scope>runtime</scope> <!--将scope为runtime的依赖包打包到lib目录下。 -->
+		</dependencySet>
+	</dependencySets>
+</assembly>

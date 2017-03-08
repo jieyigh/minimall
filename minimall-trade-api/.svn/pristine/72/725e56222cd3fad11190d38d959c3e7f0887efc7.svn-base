@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.OrderListDao">
+	<resultMap id="BaseResultMap" type="com.jbh360.trade.vo.StoreOrderResult" >
+  	<id column="id" jdbcType="BIGINT" property="order_id" />
+    <result column="store_logo" jdbcType="VARCHAR" property="order_no" />
+    <result column="last_update_time" jdbcType="TIMESTAMP" property="order_time" />
+    <result column="store_name" jdbcType="VARCHAR" property="state_code" />
+    <result column="contact_no" jdbcType="VARCHAR" property="state_name" />
+    <result column="is_return" jdbcType="SMALLINT" property="order_type" />
+    <result column="store_logo" jdbcType="BIGINT" property="game_id" />
+    <result column="contact_no" jdbcType="VARCHAR" property="game_name" />
+    <result column="store_logo" jdbcType="BIGINT" property="conpon_id" />
+    <result column="store_logo" jdbcType="VARCHAR" property="conpon_name" />
+    <result column="store_logo" jdbcType="VARCHAR" property="trade_logo_rsurl" />
+    <result column="store_logo" jdbcType="VARCHAR" property="receiver_name" />
+    <result column="store_logo" jdbcType="VARCHAR" property="receiver_mobile" />
+    <result column="buy_count" jdbcType="INTEGER" property="buy_count" />
+  </resultMap>
+  
+	<select id="getStoreOrderList" resultMap="BaseResultMap">
+	select a.id, a.order_no, a.create_time, a.state_code, a.state_name, a.order_type, a.fk_game_id, a.fk_coupon_id, 
+	b.game_name, c.coupon_name, e.receiver_name, e.receiver_mobile,
+	(select f.product_logo_rsurl from tdo_order_detail f where f.fk_order_id = a.id limit 1) as trade_logo_rsurl,
+	(select count(g.buy_count) from tdo_order_detail g where g.fk_order_id = a.id) as buy_count
+	
+	from tdo_order a 
+	join gds_product_game b on b.id = a.fk_game_id
+	join store_coupon c on c.id = a.fk_coupon_id
+	join tdo_order_detail d on a.id = d.fk_order_id 
+	join tdo_order_receiver e on e.fk_order_id = a.id
+	where 1
+	<if test="param.key_word != null and param.key_word != ''" >
+        and (e.receiver_name like '%${param.key_word}%' or e.receiver_mobile like '%${param.key_word}%' or a.order_no like '%${param.key_word}%' or d.product_name like '%${param.key_word}%')
+    </if>
+    <if test="param.order_type != null">
+        and a.order_type = #{param.order_type}
+    </if>
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.order_type != null and param.order_type == 1 and param.member_id != null">
+        and a.fk_buye_store_member_id = #{param.member_id}
+    </if>
+    <if test="param.order_type != null and (param.order_type == 3 or param.order_type == 2) and param.store_id != null">
+        and a.fk_buyer_store_id = #{param.store_id}
+    </if>
+    order by create_time desc
+  </select>
+  
+  <select id="countStoreOrderList" resultType="java.lang.Long">
+	select count(a.id)
+	from tdo_order a 
+	join gds_product_game b on b.id = a.fk_game_id
+	join store_coupon c on c.id = a.fk_coupon_id
+	join tdo_order_detail d on a.id = d.fk_order_id 
+	join tdo_order_receiver e on e.fk_order_id = a.id
+	where 1
+	<if test="param.key_word != null and param.key_word != ''" >
+        and (e.receiver_name like '%${param.key_word}%' or e.receiver_mobile like '%${param.key_word}%' or a.order_no like '%${param.key_word}%' or d.product_name like '%${param.key_word}%')
+    </if>
+    <if test="param.order_type != null">
+        and a.order_type = #{param.order_type}
+    </if>
+    <if test="param.state_code != null and param.state_code != ''">
+        and a.state_code =  #{param.state_code}
+    </if>
+    <if test="param.order_type != null and param.order_type == 1 and param.member_id != null">
+        and a.fk_buye_store_member_id = #{param.member_id}
+    </if>
+    <if test="param.order_type != null and (param.order_type == 3 or param.order_type == 2) and param.store_id != null">
+        and a.fk_buyer_store_id = #{param.store_id}
+    </if>
+  </select>
+</mapper>

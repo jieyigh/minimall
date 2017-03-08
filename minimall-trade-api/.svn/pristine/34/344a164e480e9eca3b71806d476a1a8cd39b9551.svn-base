@@ -1,0 +1,158 @@
+package com.jbh360.trade.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.base.ErrorResultResponseTag;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.trade.vo.StoreOrderListParams;
+import com.jbh360.trade.vo.StoreOrderResult;
+import com.jbh360.common.utils.Page;
+import com.jbh360.trade.service.OrderListServiceImpl;
+import com.jbh360.trade.vo.StoreOrderListResult;
+import com.jbh360.trade.vo.StoreOrderListResponseTag;
+import com.jbh360.trade.vo.UcOrderListParams;
+import com.jbh360.trade.vo.UcOrderResult;
+import com.jbh360.trade.vo.UcOrderListResult;
+import com.jbh360.trade.vo.UcOrderListResponseTag;
+import com.jbh360.trade.vo.OrderResult;
+import com.jbh360.trade.vo.OrderResultResponseTag;
+
+@Controller
+public class OrderListController extends BaseController {
+	
+    @Autowired
+    protected OrderListServiceImpl orderListServiceImpl;
+    
+    /**
+     * 获取店铺的订单列表
+     * @param params
+     * @return
+     * @author beiqiting
+     */
+	@RequestMapping(value = "store/order/list", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object storeOrderList(StoreOrderListParams params) {
+		ErrorResult error = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		try {
+			//验证数据
+			if(null != params.getOrder_type() && params.getOrder_type() == 1 && (null == params.getMember_id() || 0 == params.getMember_id())){
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage("查找采购单会员id不能为空");
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			if(null != params.getOrder_type() && (params.getOrder_type() == 2 || params.getOrder_type() == 3) && (null == params.getStore_id() || 0 == params.getStore_id())){
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage("查找自营单或代销单店铺id不能为空");
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			Page<StoreOrderResult> page = new Page<StoreOrderResult>();
+			if (null == params.getPage_no() ) {
+				params.setPage_no(1);
+			}
+
+			if (null == params.getPage_size() ) {
+				params.setPage_size(10);
+			}
+			
+			page =  orderListServiceImpl.getStoreOrderList(page, params);
+			StoreOrderListResult storeOrderListResult = new StoreOrderListResult(params.getPage_size(), params.getPage_no(), page.getTotalCount());
+			storeOrderListResult.setStoreOrderList(page.getResult());
+			StoreOrderListResponseTag responeTag = new StoreOrderListResponseTag();
+			responeTag.setStoreOrderListResult(storeOrderListResult);
+			return responeTag;
+		}catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+
+	/**
+	 * 普通会员的订单列表
+	 * @param params
+	 * @return
+	 * @author beiqiting
+	 */
+	@RequestMapping(value = "uc/order/list", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object ucOrderList(UcOrderListParams params) {
+		ErrorResult error = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		try {
+			//验证数据
+			if(null == params.getMember_id() || 0 == params.getMember_id()){
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage("会员id不能为空");
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			Page<UcOrderResult> page = new Page<UcOrderResult>();
+			if (null == params.getPage_no() ) {
+				params.setPage_no(1);
+			}
+
+			if (null == params.getPage_size() ) {
+				params.setPage_size(10);
+			}
+			
+			page =  orderListServiceImpl.getUcOrderList(page, params);
+			UcOrderListResult ucOrderListResult = new UcOrderListResult(params.getPage_size(), params.getPage_no(), page.getTotalCount());
+			ucOrderListResult.setUcOrderList(page.getResult());
+			UcOrderListResponseTag responeTag = new UcOrderListResponseTag();
+			responeTag.setUcOrderListResult(ucOrderListResult);
+			return responeTag;
+		}catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+
+	/**
+	 * 获取订单详细
+	 * @param order_id
+	 * @return
+	 * @author beiqiting
+	 */
+	@RequestMapping(value = "order/get", method = { RequestMethod.POST,RequestMethod.GET })
+	public @ResponseBody Object getOrder(Long order_id) {
+		ErrorResult error = new ErrorResult();
+		ErrorResultResponseTag errorResopneTag= new ErrorResultResponseTag();
+		
+		try {
+			//验证数据
+			if(null == order_id || 0 == order_id){
+				error.setErrorCode(SystemErrorCode.CommonErrorCode.INPUT_VALIDATION_ERROR);
+				error.setErrorMessage("订单id不能为空");
+				errorResopneTag.setErrorResult(error);
+				return errorResopneTag;
+			}
+			
+			OrderResult orderResult =  orderListServiceImpl.getOrder(order_id);
+			OrderResultResponseTag responeTag = new OrderResultResponseTag();
+			responeTag.setOrderResult(orderResult);
+			return responeTag;
+		}catch (Exception e) {
+			logger.error(e.getMessage(),e);
+			error.setErrorCode(SystemErrorCode.CommonErrorCode.SYSEM_ERROR);
+			error.setErrorMessage(e.getMessage());
+			errorResopneTag.setErrorResult(error);
+			return errorResopneTag;
+		}
+	}
+}

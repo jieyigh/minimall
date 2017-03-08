@@ -1,0 +1,50 @@
+package com.jbh360.trade.vo;
+
+import javax.validation.constraints.NotNull;
+
+import org.hibernate.validator.constraints.NotBlank;
+
+/**
+ * 订单包裹签收 参数
+ * @author : liguosheng 
+ * @CreateDate : 2015年10月28日 下午2:09:47
+ */
+public class OrderSignParams {
+	
+	@NotNull(message="包裹express_id不能为空")
+	private Long express_id; // 包裹ID
+	
+	@NotBlank(message="物流编号express_bill_no不能为空")
+	private String express_bill_no;	// 物流单编号
+	
+	
+	private Long member_id;	// 签收人ID
+	
+	
+
+	public Long getMember_id() {
+		return member_id;
+	}
+
+	public void setMember_id(Long member_id) {
+		this.member_id = member_id;
+	}
+
+	public Long getExpress_id() {
+		return express_id;
+	}
+
+	public void setExpress_id(Long express_id) {
+		this.express_id = express_id;
+	}
+
+	public String getExpress_bill_no() {
+		return express_bill_no;
+	}
+
+	public void setExpress_bill_no(String express_bill_no) {
+		this.express_bill_no = express_bill_no;
+	}
+	
+	
+}

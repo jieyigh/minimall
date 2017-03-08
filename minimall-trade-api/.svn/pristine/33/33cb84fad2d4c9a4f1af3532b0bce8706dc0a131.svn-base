@@ -1,0 +1,147 @@
+package com.jbh360.trade.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.ibatis.session.RowBounds;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.jbh360.common.base.ErrorResult;
+import com.jbh360.common.exception.SystemErrorCode;
+import com.jbh360.common.utils.BeanUtil;
+import com.jbh360.common.utils.Page;
+import com.jbh360.trade.dao.OrderExpressDao;
+import com.jbh360.trade.entity.OrderExpress;
+import com.jbh360.trade.entity.OrderExpressDetail;
+import com.jbh360.trade.entity.OrderExpressDetailExample;
+import com.jbh360.trade.entity.OrderExpressExample;
+import com.jbh360.trade.entity.OrderExpressFollow;
+import com.jbh360.trade.entity.OrderExpressFollowExample;
+import com.jbh360.trade.mapper.OrderExpressDetailMapper;
+import com.jbh360.trade.mapper.OrderExpressFollowMapper;
+import com.jbh360.trade.mapper.OrderExpressMapper;
+import com.jbh360.trade.vo.param.OrderExpressParams;
+import com.jbh360.trade.vo.rs.OrderExpressDetailResult;
+import com.jbh360.trade.vo.rs.OrderExpressFollowResult;
+import com.jbh360.trade.vo.rs.OrderExpressResult;
+import com.jbh360.trade.vo.rs.OrderExpressVo;
+
+/**
+ * 物流信息
+ * 
+ * @author 揭懿
+ *
+ */
+@Service
+public class OrderExpressServiceImpl {
+	
+	@Autowired
+	private OrderExpressMapper orderExpressMapper;
+	
+	@Autowired
+	private OrderExpressDetailMapper orderExpressDetailMapper;
+	
+	@Autowired
+	private OrderExpressFollowMapper orderExpressFollowMapper;
+	
+	
+	@Autowired
+	private OrderExpressDao orderExpressDao;
+	
+	
+	/**
+	 * 物流信息列表
+	 * @param page
+	 * @param params
+	 * @return
+	 */
+	public Page<OrderExpressResult> getOrderExpressResults(Page<OrderExpressResult> page, OrderExpressParams params){
+		
+		List<OrderExpressVo> expressVos = orderExpressDao.getOrderExpressVoLists(new RowBounds(page.getFirst()-1, page.getPageSize()), params);
+		
+		List<OrderExpressResult> result = new ArrayList<OrderExpressResult>();
+		
+		for(OrderExpressVo expressVo:expressVos){
+			OrderExpressResult orderExpressResult = new OrderExpressResult();
+			BeanUtil.copyProperties(orderExpressResult, expressVo);
+			result.add(orderExpressResult);
+		}
+		
+		Long count = orderExpressDao.countOrderExpressVoLists(params);
+		page.setResult(result);
+		page.setTotalCount(count);
+		return page;
+	}
+	
+	/**
+	 * 查看物流包裹信息
+	 * @param params
+	 * @param error
+	 * @return
+	 */
+	public OrderExpressResult getOrderExpressResult(OrderExpressParams params,ErrorResult error){
+		OrderExpressResult orderExpressResult = new OrderExpressResult();
+		
+		OrderExpress orderExpress = null;
+		
+		if(null != params.getOrder_express_id()){
+			orderExpress = orderExpressMapper.selectByPrimaryKey(params.getOrder_express_id());
+		}else if(null != params.getExpress_bill_no()){
+			
+			OrderExpressExample expressexample = new OrderExpressExample();
+			OrderExpressExample.Criteria expressCriteria = expressexample.createCriteria();
+			expressCriteria.andExpressBillNoEqualTo(params.getExpress_bill_no());
+			List<OrderExpress> orderExpresses = orderExpressMapper.selectByExample(expressexample);
+			
+			if(null != orderExpresses && !orderExpresses.isEmpty()){
+				orderExpress = orderExpresses.get(0);
+			}
+		}
+		
+		
+		
+		if(null != orderExpress){
+			BeanUtil.copyProperties(orderExpressResult, orderExpress);
+			
+			
+			List<OrderExpressDetailResult> detailResults = new ArrayList<OrderExpressDetailResult>();
+			List<OrderExpressFollowResult> followResults = new ArrayList<OrderExpressFollowResult>();
+			
+			OrderExpressDetailExample example = new OrderExpressDetailExample();
+			OrderExpressDetailExample.Criteria criteria = example.createCriteria();
+			criteria.andFkOrderExpressIdEqualTo(orderExpress.getId());
+			List<OrderExpressDetail> expressDetails = orderExpressDetailMapper.selectByExample(example);
+			for(OrderExpressDetail detail:expressDetails){
+				OrderExpressDetailResult detailResult = new OrderExpressDetailResult();
+				BeanUtil.copyProperties(detailResult, detail);
+				detailResults.add(detailResult);
+			}
+			
+			OrderExpressFollowExample followexample = new OrderExpressFollowExample();
+			OrderExpressFollowExample.Criteria followcriteria = followexample.createCriteria();
+			followcriteria.andFkOrderExpressIdEqualTo(orderExpress.getId());
+			List<OrderExpressFollow> expressfollows = orderExpressFollowMapper.selectByExample(followexample);
+			for(OrderExpressFollow follow:expressfollows){
+				OrderExpressFollowResult followResult = new OrderExpressFollowResult();
+				BeanUtil.copyProperties(followResult, follow);
+				followResults.add(followResult);
+			}
+			
+			orderExpressResult.setDetailResults(detailResults);
+			orderExpressResult.setFollowResults(followResults);
+			
+		}else{
+			error.setErrorCode(SystemErrorCode.OrderErrorCode.ORDER_EXPRESS_NO_EXISTENCE);
+    		error.setErrorMessage("物流发货包裹无效");
+    		return null;
+		}
+		
+		return orderExpressResult;
+	}
+	
+	
+	
+	
+
+}

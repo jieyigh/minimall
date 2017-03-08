@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.TradeDao">
+	<resultMap type="com.jbh360.trade.vo.rs.TradeVo" id="TradeVoMap" extends="com.jbh360.trade.mapper.TradeMapper.BaseResultMap">
+	</resultMap>
+	
+	<select id="selectByTradeNoForUpdate" parameterType="java.lang.String" resultMap="TradeVoMap">
+    select 
+    * 
+    from tdo_trade
+    where trade_no = #{trade_no,jdbcType=VARCHAR} for update
+  	</select>
+  	
+  	
+  	<select id="selectByPayNoForUpdate" parameterType="java.lang.String" resultMap="TradeVoMap">
+    select 
+    * 
+    from tdo_trade
+    where pay_no = #{pay_no,jdbcType=VARCHAR} for update
+  	</select>
+  	
+  	<select id="selectByPrimaryKeyForUpdate" parameterType="java.lang.Long" resultMap="TradeVoMap">
+        SELECT a.* FROM tdo_order a where a.id = #{id}  FOR UPDATE
+    </select>
+    
+    
+</mapper>

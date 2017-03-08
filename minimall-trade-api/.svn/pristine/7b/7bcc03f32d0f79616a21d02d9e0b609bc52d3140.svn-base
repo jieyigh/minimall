@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jbh360.trade.dao.PurchaseCartDao">
+
+	<resultMap type="com.jbh360.trade.vo.PurchaseCartResult" id="listResultMap" extends="com.jbh360.trade.mapper.PurchaseCartMapper.BaseResultMap">
+		<result column="store_name" jdbcType="VARCHAR" property="fkSupplierStoreName"/>
+		<result column="name" jdbcType="VARCHAR" property="productName"/>
+	</resultMap>
+	
+	<resultMap type="com.jbh360.trade.vo.PriceResult" id="priceResultMap">
+		<result column="start_unit" jdbcType="INTEGER" property="startCount"/>
+		<result column="price" jdbcType="DECIMAL" property="sellPrice" />
+	</resultMap>	
+	
+	<select id="findListByMemberId" resultMap="listResultMap" parameterType="java.lang.Long">
+		select 
+			c.*,sto.store_name,p.name
+		from 
+			tdo_purchase_cart c 
+		left join store_info sto on c.fk_supplier_store_id = sto.id
+		left join gds_product p on p.id = c.fk_product_id
+		where c.state = 50 and c.fk_buyer_member_id = #{member_id} order by c.create_time desc
+	</select>
+	
+	<select id="getStepPrices" parameterType="java.lang.Long" resultMap="priceResultMap">
+		select start_unit,price from gds_product_ladder_price p where p.state = 50 and p.fk_product_id = #{product_id}
+	</select>
+	
+	<select id="getStepPriceByProductSaleCount" parameterType="java.util.Map" resultType="java.math.BigDecimal">
+		SELECT 
+			MAX(p.start_unit) 
+		FROM 
+			gds_product_ladder_price p 
+		WHERE 
+			p.start_unit &lt;=  #{count,jdbcType=INTEGER}
+		AND
+			p.fk_product_id = #{product_id,jdbcType=BIGINT}
+	</select>
+	
+	
+</mapper>
